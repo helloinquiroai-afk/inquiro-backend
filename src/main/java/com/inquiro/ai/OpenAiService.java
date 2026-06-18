@@ -294,9 +294,78 @@ public class OpenAiService implements AiService {
         }
     }
 
+
     @Override
-    public RequestAnalysis analyzeRequest(String message) {
-        throw new UnsupportedOperationException(
-                "Request analysis not implemented yet");
+    public RequestAnalysis analyzeRequest(
+            String message) {
+
+        RestClient client = RestClient.builder()
+                .baseUrl("https://api.openai.com")
+                .defaultHeader(
+                        HttpHeaders.AUTHORIZATION,
+                        "Bearer " + properties.getApiKey()
+                )
+                .build();
+
+        OpenAiRequest request =
+                new OpenAiRequest(
+                        properties.getModel(),
+                        List.of(
+                                new Message(
+                                        "system",
+                                        RequestAnalysisPrompt.systemPrompt()
+                                ),
+                                new Message(
+                                        "user",
+                                        message
+                                )
+                        )
+                );
+
+        OpenAiResponse response =
+                client.post()
+                        .uri("/v1/chat/completions")
+                        .body(request)
+                        .retrieve()
+                        .body(OpenAiResponse.class);
+
+        if (response == null ||
+                response.choices() == null ||
+                response.choices().isEmpty()) {
+
+            throw new IllegalStateException(
+                    "OpenAI response did not include choices."
+            );
+        }
+
+        String assistantContent =
+                response.choices()
+                        .get(0)
+                        .message()
+                        .content();
+
+        System.out.println(
+                "Request Analysis Response:"
+        );
+
+        System.out.println(
+                assistantContent
+        );
+
+        try {
+
+            return objectMapper.readValue(
+                    assistantContent,
+                    RequestAnalysis.class
+            );
+
+        } catch (Exception e) {
+
+            throw new IllegalStateException(
+                    "Failed to parse request analysis: "
+                            + assistantContent,
+                    e
+            );
+        }
     }
 }
