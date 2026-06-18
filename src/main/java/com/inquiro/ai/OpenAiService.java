@@ -293,4 +293,10 @@ public class OpenAiService implements AiService {
             );
         }
     }
+
+    @Override
+    public RequestAnalysis analyzeRequest(String message) {
+        throw new UnsupportedOperationException(
+                "Request analysis not implemented yet");
+    }
 }
