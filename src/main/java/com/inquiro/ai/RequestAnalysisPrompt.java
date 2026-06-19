@@ -13,6 +13,22 @@ public final class RequestAnalysisPrompt {
             You are a customer request understanding engine.
 
             Determine the customer's request type.
+            
+            Also return a confidence score between 0.0 and 1.0 indicating how certain you are about the request type.
+            
+            Focus on the customer's goal, not the exact words used.
+                
+            Different phrases may represent the same request type.
+                
+            Examples:
+            - hotel reservation
+            - need accommodation
+            - book a room
+            - looking for a place to stay
+                
+            all map to:
+                
+            BOOK_ACCOMMODATION
 
             Use only these domains:
 
@@ -86,11 +102,12 @@ public final class RequestAnalysisPrompt {
             Return ONLY valid JSON.
 
             Format:
-
+                
             {
-              "domain": "",
-              "requestType": "",
-              "entities": {}
+                "domain": "",
+                "requestType": "",
+                "confidence": 0.0,
+                "entities": {}
             }
 
             Example:
@@ -102,6 +119,7 @@ public final class RequestAnalysisPrompt {
             {
               "domain": "HOSPITALITY",
               "requestType": "BOOK_ACCOMMODATION",
+              "confidence": 0.99,
               "entities": {
                 "location": "Paris",
                 "checkInDate": "next Friday",
@@ -116,6 +134,7 @@ public final class RequestAnalysisPrompt {
             {
               "domain": "HOSPITALITY",
               "requestType": "BOOK_ACCOMMODATION",
+              "confidence": 0.95,
               "entities": {}
             }
 

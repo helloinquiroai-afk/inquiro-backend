@@ -4,6 +4,8 @@ public enum InquiryStatus {
 
     NEEDS_INFORMATION,
 
-    READY
+    READY,
+
+    NEEDS_CLARIFICATION
 
 }
