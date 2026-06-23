@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
+import java.util.Map;
 
 @SpringBootTest
 class OpenAiServiceTest {
@@ -33,5 +34,25 @@ class OpenAiServiceTest {
         System.out.println("Analysis = " + analysis);
         System.out.println("Missing = " + missing);
         System.out.println();
+    }
+
+    @Test
+    void shouldAnalyzeFollowUp() {
+
+        FollowUpAnalysis analysis =
+                aiService.analyzeFollowUp(
+                        "BOOK_ACCOMMODATION",
+                        Map.of(
+                                "location", "Paris",
+                                "checkInDate", "next Friday",
+                                "guestCount", 2
+                        ),
+                        List.of("durationNights"),
+                        "3 nights"
+                );
+
+        System.out.println(
+                "FollowUp Analysis = " + analysis
+        );
     }
 }

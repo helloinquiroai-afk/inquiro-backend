@@ -1,8 +1,10 @@
 package com.inquiro.conversation;
 
 import com.inquiro.ai.AiService;
+import com.inquiro.ai.FollowUpAnalysis;
 import com.inquiro.ai.RequestAnalysis;
 import com.inquiro.inquiry.*;
+import com.inquiro.request.SlotFillingEngine;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +21,7 @@ public class ConversationService {
     private final InquiryOrchestrator inquiryOrchestrator;
     private final AiService aiService;
     private final InquiryProcessor inquiryProcessor;
+    private final SlotFillingEngine slotFillingEngine;
 
     public InquiryResponse process(
             String sessionId,
@@ -54,13 +57,26 @@ public class ConversationService {
         /*throw new UnsupportedOperationException(
                 "Continue conversation not implemented yet");*/
 
-        RequestAnalysis replyAnalysis =
-                aiService.analyzeRequest(message);
+        FollowUpAnalysis replyAnalysis =
+                aiService.analyzeFollowUp(
+                        session.getInquiry().service(),
+                        session.getInquiry().fields(),
+                        session.getMissingFields(),
+                        message
+                );
 
         Map<String, Object> fields =
                 EntityMerger.merge(
                         session.getInquiry().fields(),
                         replyAnalysis.entities()
+                );
+
+        RequestAnalysis updatedAnalysis =
+                new RequestAnalysis(
+                        session.getInquiry().domain(),
+                        session.getInquiry().service(),
+                        1.0,
+                        fields
                 );
 
         InquiryResult updatedInquiry =
@@ -71,8 +87,8 @@ public class ConversationService {
                 );
 
         List<String> missing =
-                inquiryProcessor.findMissingFields(
-                        updatedInquiry
+                slotFillingEngine.findMissingSlots(
+                        updatedAnalysis
                 );
 
         if (missing.isEmpty()) {
