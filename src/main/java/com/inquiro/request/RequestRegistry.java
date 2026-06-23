@@ -18,6 +18,7 @@ public class RequestRegistry {
                             List.of(
                                     "location",
                                     "checkInDate",
+                                    "durationNights",
                                     "guestCount"
                             )
                     ),

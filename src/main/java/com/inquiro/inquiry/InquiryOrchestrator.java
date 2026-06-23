@@ -1,10 +1,14 @@
 package com.inquiro.inquiry;
 
 import com.inquiro.ai.AiService;
+import com.inquiro.ai.RequestAnalysis;
+import com.inquiro.ai.RequestAnalysisValidator;
+import com.inquiro.request.SlotFillingEngine;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -12,24 +16,39 @@ public class InquiryOrchestrator {
 
     private final AiService aiService;
     private final InquiryProcessor inquiryProcessor;
+    private final SlotFillingEngine slotFillingEngine;
+    private final RequestAnalysisValidator validator;
 
     public InquiryResponse process(String message) {
 
-        InquiryResult inquiry =
-                aiService.analyze(message);
+        RequestAnalysis analysis =
+                aiService.analyzeRequest(message);
 
-        List<String> missing =
-                inquiryProcessor.findMissingFields(inquiry);
-
-        if ("UNKNOWN".equalsIgnoreCase(inquiry.service())) {
+        if (validator.needsClarification(analysis)) {
 
             return new InquiryResponse(
-                    inquiry,
-                    List.of("service"),
-                    InquiryStatus.NEEDS_INFORMATION,
-                    "Could you tell us what type of service you need?"
+                    new InquiryResult(
+                            "UNKNOWN",
+                            "UNKNOWN",
+                            Map.of()
+                    ),
+                    List.of(),
+                    InquiryStatus.NEEDS_CLARIFICATION,
+                    "Could you tell me what type of service you need? For example: accommodation, restaurant reservation, airport pickup, or doctor appointment."
             );
         }
+
+        List<String> missing =
+                slotFillingEngine.findMissingSlots(
+                        analysis
+                );
+
+        InquiryResult inquiry =
+                new InquiryResult(
+                        analysis.domain(),
+                        analysis.requestType(),
+                        analysis.entities()
+                );
 
         if (missing.isEmpty()) {
 
@@ -54,6 +73,15 @@ public class InquiryOrchestrator {
         String field = missingFields.get(0);
 
         return switch (field) {
+
+            case "location" ->
+                    "Where would you like to stay?";
+
+            case "pickupLocation" ->
+                    "Where would you like to be picked up from?";
+
+            case "passengerCount" ->
+                    "How many passengers will be travelling?";
 
             case "time" ->
                     "What time would you like the reservation?";

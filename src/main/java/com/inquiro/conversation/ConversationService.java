@@ -1,6 +1,7 @@
 package com.inquiro.conversation;
 
 import com.inquiro.ai.AiService;
+import com.inquiro.ai.RequestAnalysis;
 import com.inquiro.inquiry.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -53,15 +54,14 @@ public class ConversationService {
         /*throw new UnsupportedOperationException(
                 "Continue conversation not implemented yet");*/
 
-        String field =
-                session.getMissingFields().get(0);
+        RequestAnalysis replyAnalysis =
+                aiService.analyzeRequest(message);
 
         Map<String, Object> fields =
-                new HashMap<>(
-                        session.getInquiry().fields()
+                EntityMerger.merge(
+                        session.getInquiry().fields(),
+                        replyAnalysis.entities()
                 );
-
-        fields.put(field, message);
 
         InquiryResult updatedInquiry =
                 new InquiryResult(
