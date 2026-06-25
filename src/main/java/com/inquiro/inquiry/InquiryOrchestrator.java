@@ -55,8 +55,8 @@ public class InquiryOrchestrator {
             return new InquiryResponse(
                     inquiry,
                     missing,
-                    InquiryStatus.READY,
-                    "Your request is ready."
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    "Thank you. I'll process your request now."
             );
         }
 

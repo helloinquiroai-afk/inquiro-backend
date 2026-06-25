@@ -98,8 +98,8 @@ public class ConversationService {
             return new InquiryResponse(
                     updatedInquiry,
                     missing,
-                    InquiryStatus.READY,
-                    "Your request is ready."
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    "Thank you. I'll process your request now."
             );
         }
 
