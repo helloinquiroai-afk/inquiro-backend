@@ -7,19 +7,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/test")
 @RequiredArgsConstructor
 public class TestController {
 
     private final WhatsAppSender whatsAppSender;
 
-    @GetMapping
+    @RequestMapping("test")
     public String test() {
 
         System.out.println("Entered TestController");
 
         whatsAppSender.send(
-                "94713071041",
+                "94712148907",
                 "Hello from Inquiro!"
         );
 
