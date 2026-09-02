@@ -3,6 +3,8 @@ package com.inquiro.controller;
 import com.inquiro.ai.AiService;
 import com.inquiro.ai.RequestAnalysis;
 import com.inquiro.ai.RequestAnalysisValidator;
+import com.inquiro.business.BusinessProfile;
+import com.inquiro.business.BusinessProfileProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,6 +20,7 @@ public class RequestAnalysisController {
 
     private final AiService aiService;
     private final RequestAnalysisValidator validator;
+    private final BusinessProfileProvider businessProfileProvider;
 
     /*@PostMapping("/request-analysis")
     public RequestAnalysis analyze(
@@ -35,16 +38,25 @@ public class RequestAnalysisController {
 
         RequestAnalysis analysis =
                 aiService.analyzeRequest(
-                        body.get("message")
+                        body.get("message"),
+                        businessProfileProvider.get()
                 );
 
         if (validator.needsClarification(analysis)) {
+
+            BusinessProfile businessProfile =
+                    businessProfileProvider.get();
 
             return Map.of(
                     "status",
                     "NEEDS_CLARIFICATION",
                     "reply",
-                    "Are you looking for accommodation, a restaurant reservation, airport pickup, or a doctor appointment?"
+                    "I can currently help with "
+                            + String.join(
+                            " and ",
+                            businessProfile.knowledge().services()
+                    )
+                            + ". How can I help?"
             );
         }
 

@@ -20,6 +20,7 @@ public class WhatsAppAdapter implements ChannelAdapter {
         InquiryResponse response =
                 conversationService.process(
                         message.sessionId(),
+                        message.businessId(),
                         message.message()
                 );
 

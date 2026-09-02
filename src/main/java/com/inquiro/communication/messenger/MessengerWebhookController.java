@@ -1,6 +1,6 @@
-package com.inquiro.communication.whatsapp;
+package com.inquiro.communication.messenger;
 
-import com.inquiro.config.WhatsAppProperties;
+import com.inquiro.config.MessengerProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -8,12 +8,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 @RestController
-@RequestMapping("/webhook")
+@RequestMapping("/messenger/webhook")
 @RequiredArgsConstructor
-public class WhatsAppWebhookController {
+public class MessengerWebhookController {
 
-    private final WhatsAppProperties properties;
-    private final WhatsAppMessageProcessor processor;
+    private final MessengerProperties properties;
+    private final MessengerMessageProcessor processor;
 
     @GetMapping
     public String verify(
@@ -21,11 +21,14 @@ public class WhatsAppWebhookController {
             @RequestParam("hub.verify_token") String verifyToken,
             @RequestParam("hub.challenge") String challenge) {
 
-        System.out.println("Mode: " + mode);
-        System.out.println("Verify Token: " + verifyToken);
-        System.out.println("Challenge: " + challenge);
+        System.out.println("Messenger Verification");
+        System.out.println("Mode      : " + mode);
+        System.out.println("Token     : " + verifyToken);
+        System.out.println("Challenge : " + challenge);
 
-        if (!properties.getVerifyToken().equals(verifyToken)) {
+        if (!"subscribe".equals(mode)
+                || !properties.getVerifyToken().equals(verifyToken)) {
+
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
 
@@ -33,10 +36,11 @@ public class WhatsAppWebhookController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> receive(@RequestBody String payload) {
+    public ResponseEntity<Void> receive(
+            @RequestBody String payload) {
 
         try {
-
+            System.out.println(payload);
             processor.process(payload);
 
         } catch (Exception e) {

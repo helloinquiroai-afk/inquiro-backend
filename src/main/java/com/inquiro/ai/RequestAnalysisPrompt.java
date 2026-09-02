@@ -1,144 +1,107 @@
 package com.inquiro.ai;
 
-
+import com.inquiro.business.BusinessProfile;
 
 public final class RequestAnalysisPrompt {
 
     private RequestAnalysisPrompt() {
     }
 
-    public static String systemPrompt() {
+    public static String systemPrompt(
+            BusinessProfile businessProfile) {
+
+        StringBuilder services =
+                new StringBuilder();
+
+        businessProfile.services()
+                .forEach(service ->
+                        services.append("""
+
+                                Service code:
+                                %s
+
+                                Description:
+                                %s
+
+                                Required fields:
+                                %s
+
+                                Allowed field names:
+                                %s
+
+                                """.formatted(
+                                service.requestType(),
+                                service.description(),
+                                service.requiredSlots(),
+                                service.requiredSlots()
+                        ))
+                );
 
         return """
-            You are a customer request understanding engine.
+                You are the customer request understanding engine for a business.
 
-            Determine the customer's request type.
-            
-            Also return a confidence score between 0.0 and 1.0 indicating how certain you are about the request type.
-            
-            Focus on the customer's goal, not the exact words used.
-                
-            Different phrases may represent the same request type.
-                
-            Examples:
-            - hotel reservation
-            - need accommodation
-            - book a room
-            - looking for a place to stay
-                
-            all map to:
-                
-            BOOK_ACCOMMODATION
+                BUSINESS
 
-            Use only these domains:
+                Name:
+                %s
 
-            - HOSPITALITY
-            - RESTAURANT
-            - HEALTHCARE
-            - UNKNOWN
+                Type:
+                %s
 
-            Use only these request types:
+                Description:
+                %s
 
-            - BOOK_ACCOMMODATION
-            - BOOK_RESTAURANT_TABLE
-            - BOOK_DOCTOR_APPOINTMENT
-            - ARRANGE_AIRPORT_PICKUP
-            - UNKNOWN
+                CONFIGURED SERVICES
 
-            Extract any information explicitly provided by the customer.
+                %s
 
-            Use ONLY the following entity names.
+                BUSINESS BOUNDARIES
 
-            BOOK_ACCOMMODATION:
-            - location
-            - checkInDate
-            - guestCount
+                Supported:
+                %s
 
-            BOOK_RESTAURANT_TABLE:
-            - date
-            - time
-            - guestCount
+                Not supported:
+                %s
 
-            BOOK_DOCTOR_APPOINTMENT:
-            - specialty
-            - date
-            - timePeriod
+                Requires business review:
+                %s
 
-            ARRANGE_AIRPORT_PICKUP:
-            - pickupLocation
-            - date
-            - time
-            - passengerCount
+                TASK
 
-            Do not invent alternative entity names.
+                Identify the customer's intent and extract only explicitly provided useful entities.
 
-            Examples:
+                If the customer wants to use, book, buy, arrange, or request one configured service,
+                return that configured service code exactly.
 
-            Use:
-            - guestCount
+                If the customer asks a question about the business, its services, products, rules,
+                prices, locations, availability, policies, or contact details, return BUSINESS_QUESTION.
 
-            Do NOT use:
-            - guests
-            - people
-            - numberOfGuests
+                If the customer only greets the business, return GREETING.
 
-            Use:
-            - checkInDate
+                If the customer request is unclear, return UNKNOWN.
 
-            Do NOT use:
-            - date
-            - arrivalDate
-            - startDate
+                Do not answer the customer. Only classify and extract.
+                Do not invent fields or values.
+                For configured services, prefer the required field names listed above.
+                If the customer provides useful information that does not map to a required field,
+                use a concise camelCase field name.
 
-            Use:
-            - pickupLocation
+                Return ONLY valid JSON in this format:
 
-            Do NOT use:
-            - airport
-            - airportLocation
-
-            If information is not provided, omit the entity.
-
-            Return ONLY valid JSON.
-
-            Format:
-                
-            {
-                "domain": "",
-                "requestType": "",
-                "confidence": 0.0,
-                "entities": {}
-            }
-
-            Example:
-
-            Customer:
-            need a room in Paris next Friday for 2 adults
-
-            Output:
-            {
-              "domain": "HOSPITALITY",
-              "requestType": "BOOK_ACCOMMODATION",
-              "confidence": 0.99,
-              "entities": {
-                "location": "Paris",
-                "checkInDate": "next Friday",
-                "guestCount": 2
-              }
-            }
-
-            Customer:
-            hotel reservation
-
-            Output:
-            {
-              "domain": "HOSPITALITY",
-              "requestType": "BOOK_ACCOMMODATION",
-              "confidence": 0.95,
-              "entities": {}
-            }
-
-            Return JSON only.
-            """;
+                {
+                  "intent": "",
+                  "confidence": 0.0,
+                  "entities": {}
+                }
+                """
+                .formatted(
+                        businessProfile.businessName(),
+                        businessProfile.businessType(),
+                        businessProfile.description(),
+                        services,
+                        businessProfile.knowledge().boundaries().supported(),
+                        businessProfile.knowledge().boundaries().notSupported(),
+                        businessProfile.knowledge().boundaries().requiresHuman()
+                );
     }
 }

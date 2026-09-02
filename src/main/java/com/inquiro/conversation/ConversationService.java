@@ -1,15 +1,26 @@
 package com.inquiro.conversation;
 
 import com.inquiro.ai.AiService;
+import com.inquiro.ai.ConversationIntentAnalysis;
 import com.inquiro.ai.FollowUpAnalysis;
 import com.inquiro.ai.RequestAnalysis;
-import com.inquiro.inquiry.*;
+import com.inquiro.availability.AvailabilityResult;
+import com.inquiro.availability.AvailabilityService;
+import com.inquiro.business.BusinessAccount;
+import com.inquiro.business.BusinessAccountRepository;
+import com.inquiro.business.BusinessProfile;
+import com.inquiro.business.BusinessRequest;
+import com.inquiro.business.BusinessRequestService;
+import com.inquiro.inquiry.InquiryOrchestrator;
+import com.inquiro.inquiry.InquiryResponse;
+import com.inquiro.inquiry.InquiryResult;
+import com.inquiro.inquiry.InquiryStatus;
+import com.inquiro.request.RequestDefinition;
 import com.inquiro.request.SlotFillingEngine;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,42 +31,253 @@ public class ConversationService {
     private final ConversationStore conversationStore;
     private final InquiryOrchestrator inquiryOrchestrator;
     private final AiService aiService;
-    private final InquiryProcessor inquiryProcessor;
     private final SlotFillingEngine slotFillingEngine;
+    private final BusinessAccountRepository businessAccountRepository;
+    private final AvailabilityService availabilityService;
+    private final BusinessRequestService businessRequestService;
 
     public InquiryResponse process(
             String sessionId,
+            String facebookPageId,
             String message) {
+
+        System.out.println(
+                "\n=================================================="
+        );
+
+        System.out.println(
+                "ConversationService.process()"
+        );
+
+        System.out.println(
+                "Session ID : " + sessionId
+        );
+
+        System.out.println(
+                "Facebook Page ID : " + facebookPageId
+        );
+
+        System.out.println(
+                "Message    : " + message
+        );
+
+        System.out.println(
+                "=================================================="
+        );
+
+        /*
+         * =========================================================
+         * 1. RESOLVE BUSINESS
+         * =========================================================
+         */
+
+        BusinessAccount businessAccount =
+                businessAccountRepository.findByFacebookPageId(
+                        facebookPageId
+                );
+
+        if (businessAccount == null) {
+
+            throw new IllegalStateException(
+                    "No business configured for Facebook Page: "
+                            + facebookPageId
+            );
+        }
+
+        BusinessProfile businessProfile =
+                businessAccount.profile();
+
+        System.out.println(
+                "Business    : "
+                        + businessAccount.businessName()
+        );
+
+        System.out.println(
+                "Business ID : "
+                        + businessAccount.businessId()
+        );
+
+        /*
+         * =========================================================
+         * 2. LOAD CONVERSATION
+         * =========================================================
+         */
 
         ConversationSession session =
                 conversationStore.get(sessionId);
 
+        /*
+         * =========================================================
+         * 3. NEW CONVERSATION
+         * =========================================================
+         */
+
         if (session == null) {
 
+            System.out.println("NEW CONVERSATION");
+
             InquiryResponse response =
-                    inquiryOrchestrator.process(message);
+                    inquiryOrchestrator.process(
+                            message,
+                            businessProfile
+                    );
+
+            printResponse(response);
+
+            /*
+             * =====================================================
+             * REQUEST NEEDS MORE INFORMATION
+             * =====================================================
+             */
 
             if (response.status()
                     == InquiryStatus.NEEDS_INFORMATION) {
 
-                conversationStore.save(
-                        new ConversationSession(
-                                sessionId,
-                                response.inquiry(),
-                                response.missingFields(),
-                                Instant.now()
-                        )
+                saveConversation(
+                        sessionId,
+                        response
+                );
+
+                return response;
+            }
+
+            /*
+             * =====================================================
+             * REQUEST IS ALREADY COMPLETE
+             * =====================================================
+             */
+
+            if (response.status()
+                    == InquiryStatus.INFORMATION_COLLECTED
+                    && isBusinessRequest(response.inquiry())) {
+
+                return processCompletedRequest(
+                        businessAccount,
+                        sessionId,
+                        response.inquiry()
                 );
             }
 
             return response;
         }
 
-        // Phase 2.2:
-        // Merge customer reply with existing inquiry
+        /*
+         * =========================================================
+         * 4. EXISTING CONVERSATION
+         * =========================================================
+         */
 
-        /*throw new UnsupportedOperationException(
-                "Continue conversation not implemented yet");*/
+        System.out.println(
+                "EXISTING CONVERSATION"
+        );
+
+        System.out.println(
+                "Stored Inquiry      : "
+                        + session.getInquiry()
+        );
+
+        System.out.println(
+                "Stored Fields       : "
+                        + session.getInquiry().fields()
+        );
+
+        System.out.println(
+                "Stored Missing      : "
+                        + session.getMissingFields()
+        );
+
+        /*
+         * =========================================================
+         * 5. DETERMINE FOLLOW-UP OR NEW REQUEST
+         * =========================================================
+         */
+
+            ConversationIntentAnalysis intent =
+                aiService.analyzeConversationIntent(
+                        businessProfile,
+                        session.getInquiry().service(),
+                        session.getInquiry().fields(),
+                        session.getMissingFields(),
+                        message
+                );
+
+        System.out.println(
+                "Conversation Intent : "
+                        + intent.intent()
+        );
+
+        System.out.println(
+                "Intent Confidence  : "
+                        + intent.confidence()
+        );
+
+        /*
+         * =========================================================
+         * 6. NEW REQUEST
+         * =========================================================
+         */
+
+        if ("NEW_REQUEST".equalsIgnoreCase(
+                intent.intent())) {
+
+            System.out.println(
+                    "CUSTOMER STARTED A NEW REQUEST"
+            );
+
+            conversationStore.remove(
+                    sessionId
+            );
+
+            InquiryResponse response =
+                    inquiryOrchestrator.process(
+                            message,
+                            businessProfile
+                    );
+
+            printResponse(response);
+
+            /*
+             * Save incomplete new request.
+             */
+
+            if (response.status()
+                    == InquiryStatus.NEEDS_INFORMATION) {
+
+                saveConversation(
+                        sessionId,
+                        response
+                );
+
+                return response;
+            }
+
+            /*
+             * Process complete new request.
+             */
+
+            if (response.status()
+                    == InquiryStatus.INFORMATION_COLLECTED
+                    && isBusinessRequest(response.inquiry())) {
+
+                return processCompletedRequest(
+                        businessAccount,
+                        sessionId,
+                        response.inquiry()
+                );
+            }
+
+            return response;
+        }
+
+        /*
+         * =========================================================
+         * 7. FOLLOW-UP TO EXISTING REQUEST
+         * =========================================================
+         */
+
+        System.out.println(
+                "CUSTOMER CONTINUES EXISTING REQUEST"
+        );
 
         FollowUpAnalysis replyAnalysis =
                 aiService.analyzeFollowUp(
@@ -65,15 +287,30 @@ public class ConversationService {
                         message
                 );
 
+        System.out.println(
+                "AI Follow-up Entities : "
+                        + replyAnalysis.entities()
+        );
+
+        /*
+         * =========================================================
+         * 8. MERGE CUSTOMER INFORMATION
+         * =========================================================
+         */
+
         Map<String, Object> fields =
                 EntityMerger.merge(
                         session.getInquiry().fields(),
                         replyAnalysis.entities()
                 );
 
+        System.out.println(
+                "Merged Fields : "
+                        + fields
+        );
+
         RequestAnalysis updatedAnalysis =
                 new RequestAnalysis(
-                        session.getInquiry().domain(),
                         session.getInquiry().service(),
                         1.0,
                         fields
@@ -86,67 +323,374 @@ public class ConversationService {
                         fields
                 );
 
+        /*
+         * =========================================================
+         * 9. CHECK REQUIRED INFORMATION
+         * =========================================================
+         */
+
         List<String> missing =
                 slotFillingEngine.findMissingSlots(
-                        updatedAnalysis
+                        updatedAnalysis,
+                        businessProfile
                 );
 
-        if (missing.isEmpty()) {
+        System.out.println(
+                "Missing After Merge : "
+                        + missing
+        );
 
-            conversationStore.remove(sessionId);
+        /*
+         * =========================================================
+         * 10. STILL MISSING INFORMATION
+         * =========================================================
+         */
+
+        if (!missing.isEmpty()) {
+
+            ConversationSession updatedSession =
+                    new ConversationSession(
+                            sessionId,
+                            updatedInquiry,
+                            missing,
+                            Instant.now()
+                    );
+
+            System.out.println(
+                    "Saving Updated Conversation"
+            );
+
+            conversationStore.save(
+                    updatedSession
+            );
+
+            String reply =
+                    buildReply(
+                            missing,
+                            businessProfile,
+                            updatedInquiry.service()
+                    );
+
+            System.out.println(
+                    "Reply : " + reply
+            );
 
             return new InquiryResponse(
                     updatedInquiry,
                     missing,
-                    InquiryStatus.INFORMATION_COLLECTED,
-                    "Thank you. I'll process your request now."
+                    InquiryStatus.NEEDS_INFORMATION,
+                    reply
             );
         }
 
-        ConversationSession updatedSession =
-                new ConversationSession(
-                        sessionId,
-                        updatedInquiry,
-                        missing,
-                        Instant.now()
-                );
+        /*
+         * =========================================================
+         * 11. ALL INFORMATION COLLECTED
+         * =========================================================
+         */
 
-        conversationStore.save(updatedSession);
+        System.out.println(
+                "Conversation Complete"
+        );
 
-        return new InquiryResponse(
-                updatedInquiry,
-                missing,
-                InquiryStatus.NEEDS_INFORMATION,
-                buildReply(missing)
+        return processCompletedRequest(
+                businessAccount,
+                sessionId,
+                updatedInquiry
         );
     }
 
-    private String buildReply(List<String> missingFields) {
+    /*
+     * =============================================================
+     * PROCESS COMPLETED BUSINESS REQUEST
+     * =============================================================
+     *
+     * At this point:
+     *
+     * - customer intent is known
+     * - required information is collected
+     * - availability may or may not be reliable
+     *
+     * AvailabilityService determines what Inquiro currently knows.
+     *
+     * BusinessRequestService records the request for the business.
+     */
 
-        String field = missingFields.get(0);
+    private InquiryResponse processCompletedRequest(
+            BusinessAccount businessAccount,
+            String customerId,
+            InquiryResult inquiry) {
 
-        return switch (field) {
+        if (!isBusinessRequest(inquiry)) {
 
-            case "time" ->
-                    "What time would you like the reservation?";
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    "Thank you."
+            );
+        }
 
-            case "durationNights" ->
-                    "How many nights would you like to stay?";
+        /*
+         * =========================================================
+         * CHECK CURRENT AVAILABILITY INFORMATION
+         * =========================================================
+         */
 
-            case "guestCount" ->
-                    "How many guests will there be?";
+        AvailabilityResult availability =
+                availabilityService.checkAvailability(
+                        inquiry.service(),
+                        inquiry.fields(),
+                        businessAccount.profile()
+                );
 
-            case "checkInDate" ->
-                    "What is your check-in date?";
+        System.out.println(
+                "Availability Status : "
+                        + availability.status()
+        );
 
-            case "date" ->
-                    "Which date would you prefer?";
+        System.out.println(
+                "Availability Message : "
+                        + availability.message()
+        );
 
-            case "specialty" ->
-                    "Which specialty do you need?";
+        /*
+         * =========================================================
+         * CREATE BUSINESS REQUEST
+         * =========================================================
+         *
+         * BusinessRequestService decides whether the request
+         * should be PENDING_CONFIRMATION, CONFIRMED, etc.
+         */
 
-            default ->
-                    "Could you please provide the missing information?";
+        BusinessRequest businessRequest =
+                businessRequestService.create(
+                        businessAccount.businessId(),
+                        customerId,
+                        inquiry.service(),
+                        inquiry.fields(),
+                        availability.status()
+                );
+
+        System.out.println(
+                "Business Request Created:"
+        );
+
+        System.out.println(
+                businessRequest
+        );
+
+        /*
+         * =========================================================
+         * CONVERSATION IS COMPLETE
+         * =========================================================
+         */
+
+        conversationStore.remove(
+                customerId
+        );
+
+        /*
+         * =========================================================
+         * CUSTOMER RESPONSE
+         * =========================================================
+         */
+
+        return buildAvailabilityResponse(
+                inquiry,
+                availability
+        );
+    }
+
+    /*
+     * =============================================================
+     * SAVE CONVERSATION
+     * =============================================================
+     */
+
+    private void saveConversation(
+            String sessionId,
+            InquiryResponse response) {
+
+        System.out.println(
+                "Saving conversation..."
+        );
+
+        conversationStore.save(
+                new ConversationSession(
+                        sessionId,
+                        response.inquiry(),
+                        response.missingFields(),
+                        Instant.now()
+                )
+        );
+    }
+
+    /*
+     * =============================================================
+     * DETERMINE BUSINESS REQUEST
+     * =============================================================
+     */
+
+    private boolean isBusinessRequest(
+            InquiryResult inquiry) {
+
+        if (inquiry == null) {
+            return false;
+        }
+
+        String service =
+                inquiry.service();
+
+        if (service == null ||
+                service.isBlank()) {
+
+            return false;
+        }
+
+        return !"UNKNOWN".equalsIgnoreCase(service)
+                && !"GREETING".equalsIgnoreCase(service)
+                && !"BUSINESS_QUESTION".equalsIgnoreCase(service);
+    }
+
+    /*
+     * =============================================================
+     * BUILD AVAILABILITY RESPONSE
+     * =============================================================
+     */
+
+    private InquiryResponse buildAvailabilityResponse(
+            InquiryResult inquiry,
+            AvailabilityResult availability) {
+
+        if (availability == null) {
+
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    buildPendingMessage()
+            );
+        }
+
+        return switch (availability.status()) {
+
+            case CONFIRMED ->
+
+                    new InquiryResponse(
+                            inquiry,
+                            List.of(),
+                            InquiryStatus.INFORMATION_COLLECTED,
+                            availability.message()
+                    );
+
+            case INDICATED ->
+
+                    new InquiryResponse(
+                            inquiry,
+                            List.of(),
+                            InquiryStatus.INFORMATION_COLLECTED,
+                            availability.message()
+                    );
+
+            case UNAVAILABLE ->
+
+                    new InquiryResponse(
+                            inquiry,
+                            List.of(),
+                            InquiryStatus.INFORMATION_COLLECTED,
+                            availability.message()
+                    );
+
+            case UNKNOWN ->
+
+                    new InquiryResponse(
+                            inquiry,
+                            List.of(),
+                            InquiryStatus.INFORMATION_COLLECTED,
+                            availability.message()
+                    );
         };
+    }
+
+    /*
+     * =============================================================
+     * DEFAULT PENDING MESSAGE
+     * =============================================================
+     */
+
+    private String buildPendingMessage() {
+
+        return "Thank you. We have received your request. "
+                + "The business will confirm availability "
+                + "and contact you shortly.";
+    }
+
+    /*
+     * =============================================================
+     * BUILD FOLLOW-UP QUESTION
+     * =============================================================
+     */
+
+    private String buildReply(
+            List<String> missingFields,
+            BusinessProfile businessProfile,
+            String service) {
+
+        String field =
+                missingFields.get(0);
+
+        RequestDefinition definition =
+                businessProfile.services()
+                        .stream()
+                        .filter(candidate ->
+                                candidate.requestType()
+                                        .equalsIgnoreCase(service))
+                        .findFirst()
+                        .orElse(null);
+
+        if (definition != null &&
+                definition.slotPrompts().containsKey(field)) {
+
+            return definition.slotPrompts()
+                    .get(field);
+        }
+
+        return "Could you please provide "
+                + field.replaceAll(
+                "([a-z])([A-Z])",
+                "$1 $2"
+        ).toLowerCase()
+                + "?";
+    }
+
+    /*
+     * =============================================================
+     * DEBUG RESPONSE
+     * =============================================================
+     */
+
+    private void printResponse(
+            InquiryResponse response) {
+
+        System.out.println(
+                "AI Inquiry      : "
+                        + response.inquiry()
+        );
+
+        System.out.println(
+                "Missing Fields  : "
+                        + response.missingFields()
+        );
+
+        System.out.println(
+                "Status          : "
+                        + response.status()
+        );
+
+        System.out.println(
+                "Reply           : "
+                        + response.reply()
+        );
     }
 }

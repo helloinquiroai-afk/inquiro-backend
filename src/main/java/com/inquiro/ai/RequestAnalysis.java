@@ -3,9 +3,8 @@ package com.inquiro.ai;
 import java.util.Map;
 
 public record RequestAnalysis(
-        String domain,
-        String requestType,
+        String intent,
         Double confidence,
-        Map<String,Object> entities
+        Map<String, Object> entities
 ) {
 }

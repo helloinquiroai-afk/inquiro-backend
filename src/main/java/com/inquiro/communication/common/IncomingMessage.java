@@ -4,6 +4,8 @@ public record IncomingMessage(
 
         String sessionId,
 
+        String businessId,
+
         String senderId,
 
         String message

@@ -1,6 +1,8 @@
 package com.inquiro.request;
 
 import com.inquiro.ai.RequestAnalysis;
+import com.inquiro.business.BusinessProfile;
+import com.inquiro.business.BusinessProfileProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -10,14 +12,34 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SlotFillingEngine {
 
-    private final RequestRegistry registry;
+    private final BusinessProfileProvider businessProfileProvider;
 
     public List<String> findMissingSlots(
             RequestAnalysis analysis) {
 
+        BusinessProfile businessProfile =
+                businessProfileProvider.get();
+
+        return findMissingSlots(
+                analysis,
+                businessProfile
+        );
+    }
+
+    public List<String> findMissingSlots(
+            RequestAnalysis analysis,
+            BusinessProfile businessProfile) {
+
         RequestDefinition definition =
-                registry.get(
-                        analysis.requestType());
+                businessProfile.services()
+                        .stream()
+                        .filter(service ->
+                                service.requestType()
+                                        .equalsIgnoreCase(
+                                                analysis.intent()
+                                        ))
+                        .findFirst()
+                        .orElse(null);
 
         if (definition == null) {
             return List.of();
@@ -26,8 +48,26 @@ public class SlotFillingEngine {
         return definition.requiredSlots()
                 .stream()
                 .filter(slot ->
-                        !analysis.entities()
-                                .containsKey(slot))
+                        isMissing(
+                                analysis,
+                                slot
+                        ))
                 .toList();
+    }
+
+    private boolean isMissing(
+            RequestAnalysis analysis,
+            String slot) {
+
+        if (!analysis.entities().containsKey(slot)) {
+            return true;
+        }
+
+        Object value =
+                analysis.entities()
+                        .get(slot);
+
+        return value == null ||
+                String.valueOf(value).isBlank();
     }
 }

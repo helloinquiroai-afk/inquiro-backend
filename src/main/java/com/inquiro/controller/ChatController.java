@@ -1,11 +1,8 @@
 package com.inquiro.controller;
 
-import com.inquiro.ai.AiService;
 import com.inquiro.ai.ChatRequest;
 import com.inquiro.inquiry.InquiryOrchestrator;
-import com.inquiro.inquiry.InquiryProcessor;
 import com.inquiro.inquiry.InquiryResponse;
-import com.inquiro.inquiry.InquiryResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

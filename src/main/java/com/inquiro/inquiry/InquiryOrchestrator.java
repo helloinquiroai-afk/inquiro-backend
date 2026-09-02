@@ -3,6 +3,13 @@ package com.inquiro.inquiry;
 import com.inquiro.ai.AiService;
 import com.inquiro.ai.RequestAnalysis;
 import com.inquiro.ai.RequestAnalysisValidator;
+import com.inquiro.availability.AvailabilityResult;
+import com.inquiro.availability.AvailabilityService;
+import com.inquiro.availability.AvailabilityStatus;
+import com.inquiro.business.BusinessProfile;
+import com.inquiro.business.BusinessProfileProvider;
+import com.inquiro.business.BusinessQuestionService;
+import com.inquiro.request.RequestDefinition;
 import com.inquiro.request.SlotFillingEngine;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,14 +22,135 @@ import java.util.Map;
 public class InquiryOrchestrator {
 
     private final AiService aiService;
-    private final InquiryProcessor inquiryProcessor;
     private final SlotFillingEngine slotFillingEngine;
     private final RequestAnalysisValidator validator;
+    private final BusinessProfileProvider businessProfileProvider;
+    private final BusinessQuestionService businessQuestionService;
+    private final AvailabilityService availabilityService;
 
     public InquiryResponse process(String message) {
 
+        /*
+         * =========================================================
+         * 1. LOAD BUSINESS PROFILE
+         * =========================================================
+         */
+
+        BusinessProfile businessProfile =
+                businessProfileProvider.get();
+
+        return process(
+                message,
+                businessProfile
+        );
+    }
+
+    public InquiryResponse process(
+            String message,
+            BusinessProfile businessProfile) {
+
+        /*
+         * =========================================================
+         * 2. ANALYZE CUSTOMER REQUEST
+         * =========================================================
+         */
+
         RequestAnalysis analysis =
-                aiService.analyzeRequest(message);
+                aiService.analyzeRequest(
+                        message,
+                        businessProfile
+                );
+
+        /*
+         * =========================================================
+         * 3. GREETING
+         * =========================================================
+         *
+         * Greetings are conversational.
+         *
+         * They do not require:
+         * - slot filling
+         * - availability checking
+         * - business knowledge lookup
+         */
+
+        if ("GREETING".equalsIgnoreCase(
+                analysis.intent())) {
+
+            InquiryResult inquiry =
+                    new InquiryResult(
+                            businessProfile.businessType(),
+                            analysis.intent(),
+                            analysis.entities()
+                    );
+
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    "Hi! Welcome to "
+                            + businessProfile.businessName()
+                            + ". How can I help you today?"
+            );
+        }
+
+        /*
+         * =========================================================
+         * 4. BUSINESS QUESTION
+         * =========================================================
+         *
+         * Examples:
+         *
+         * "What time is check-in?"
+         * "Do you offer this service?"
+         * "What facilities do you have?"
+         *
+         * These questions are answered from the business
+         * owner's knowledge.
+         *
+         * They do NOT go through slot filling or availability
+         * checking.
+         */
+
+        if ("BUSINESS_QUESTION".equalsIgnoreCase(
+                analysis.intent())) {
+
+            System.out.println(
+                    "BUSINESS QUESTION"
+            );
+
+            String answer =
+                    businessQuestionService.answer(
+                            message,
+                            businessProfile
+                    );
+
+            InquiryResult inquiry =
+                    new InquiryResult(
+                            businessProfile.businessType(),
+                            analysis.intent(),
+                            analysis.entities()
+                    );
+
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    answer
+            );
+        }
+
+        /*
+         * =========================================================
+         * 5. REQUEST NOT CLEAR
+         * =========================================================
+         *
+         * Example:
+         *
+         * "I need a booking."
+         *
+         * The AI could not determine the actual service.
+         */
 
         if (validator.needsClarification(analysis)) {
 
@@ -34,75 +162,325 @@ public class InquiryOrchestrator {
                     ),
                     List.of(),
                     InquiryStatus.NEEDS_CLARIFICATION,
-                    "Could you tell me what type of service you need? For example: accommodation, restaurant reservation, airport pickup, or doctor appointment."
+                    buildBusinessClarificationReply(
+                            businessProfile
+                    )
             );
         }
 
+        /*
+         * =========================================================
+         * 6. FIND MISSING REQUIRED INFORMATION
+         * =========================================================
+         */
+
         List<String> missing =
                 slotFillingEngine.findMissingSlots(
-                        analysis
+                        analysis,
+                        businessProfile
                 );
+
+        /*
+         * =========================================================
+         * 7. CREATE INQUIRY RESULT
+         * =========================================================
+         */
 
         InquiryResult inquiry =
                 new InquiryResult(
-                        analysis.domain(),
-                        analysis.requestType(),
+                        businessProfile.businessType(),
+                        analysis.intent(),
                         analysis.entities()
                 );
 
-        if (missing.isEmpty()) {
+        /*
+         * =========================================================
+         * 8. INFORMATION STILL MISSING
+         * =========================================================
+         *
+         * Do NOT check availability yet.
+         *
+         * First collect all information required for the
+         * requested service.
+         */
+
+        if (!missing.isEmpty()) {
 
             return new InquiryResponse(
                     inquiry,
                     missing,
-                    InquiryStatus.INFORMATION_COLLECTED,
-                    "Thank you. I'll process your request now."
+                    InquiryStatus.NEEDS_INFORMATION,
+                    buildReply(
+                            missing,
+                            businessProfile,
+                            analysis.intent()
+                    )
             );
         }
 
-        return new InquiryResponse(
+        /*
+         * =========================================================
+         * 9. ALL REQUIRED INFORMATION COLLECTED
+         * =========================================================
+         *
+         * Now we can ask the availability layer.
+         *
+         * IMPORTANT:
+         *
+         * AvailabilityService is responsible for deciding
+         * whether the available information is:
+         *
+         * CONFIRMED
+         * INDICATED
+         * UNAVAILABLE
+         * UNKNOWN
+         *
+         * Inquiro itself does not assume availability.
+         */
+
+        System.out.println(
+                "ALL REQUIRED INFORMATION COLLECTED"
+        );
+
+        AvailabilityResult availability =
+                availabilityService.checkAvailability(
+                        analysis.intent(),
+                        analysis.entities(),
+                        businessProfile
+                );
+
+        /*
+         * =========================================================
+         * 10. BUILD AVAILABILITY RESPONSE
+         * =========================================================
+         */
+
+        return buildAvailabilityResponse(
                 inquiry,
-                missing,
-                InquiryStatus.NEEDS_INFORMATION,
-                buildReply(missing)
+                availability
         );
     }
 
-    private String buildReply(List<String> missingFields) {
+    /*
+     * =============================================================
+     * BUILD AVAILABILITY RESPONSE
+     * =============================================================
+     *
+     * The important distinction is:
+     *
+     * CONFIRMED
+     *     The source is reliable enough to confirm availability.
+     *
+     * INDICATED
+     *     Business information suggests availability, but the
+     *     business must still confirm it.
+     *
+     * UNAVAILABLE
+     *     A reliable source says it is unavailable.
+     *
+     * UNKNOWN
+     *     We cannot determine availability.
+     */
 
-        String field = missingFields.get(0);
+    private InquiryResponse buildAvailabilityResponse(
+            InquiryResult inquiry,
+            AvailabilityResult availability) {
 
-        return switch (field) {
+        /*
+         * ---------------------------------------------------------
+         * No availability result
+         * ---------------------------------------------------------
+         */
 
-            case "location" ->
-                    "Where would you like to stay?";
+        if (availability == null) {
 
-            case "pickupLocation" ->
-                    "Where would you like to be picked up from?";
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    buildBusinessConfirmationMessage()
+            );
+        }
 
-            case "passengerCount" ->
-                    "How many passengers will be travelling?";
+        /*
+         * ---------------------------------------------------------
+         * CONFIRMED
+         * ---------------------------------------------------------
+         */
 
-            case "time" ->
-                    "What time would you like the reservation?";
+        if (availability.status() ==
+                AvailabilityStatus.CONFIRMED) {
 
-            case "durationNights" ->
-                    "How many nights would you like to stay?";
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    availability.message()
+            );
+        }
 
-            case "guestCount" ->
-                    "How many guests will there be?";
+        /*
+         * ---------------------------------------------------------
+         * INDICATED
+         * ---------------------------------------------------------
+         *
+         * We have an indication from business information,
+         * but we do NOT promise availability.
+         */
 
-            case "checkInDate" ->
-                    "What is your check-in date?";
+        if (availability.status() ==
+                AvailabilityStatus.INDICATED) {
 
-            case "date" ->
-                    "Which date would you prefer?";
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    buildIndicatedAvailabilityMessage(
+                            availability.message()
+                    )
+            );
+        }
 
-            case "specialty" ->
-                    "Which specialty do you need?";
+        /*
+         * ---------------------------------------------------------
+         * UNAVAILABLE
+         * ---------------------------------------------------------
+         */
 
-            default ->
-                    "Could you please provide the missing information?";
-        };
+        if (availability.status() ==
+                AvailabilityStatus.UNAVAILABLE) {
+
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    availability.message()
+            );
+        }
+
+        /*
+         * ---------------------------------------------------------
+         * UNKNOWN
+         * ---------------------------------------------------------
+         *
+         * We don't have enough reliable information to determine
+         * availability.
+         *
+         * Therefore we collect the request and let the business
+         * confirm it.
+         */
+
+        return new InquiryResponse(
+                inquiry,
+                List.of(),
+                InquiryStatus.INFORMATION_COLLECTED,
+                buildBusinessConfirmationMessage()
+        );
+    }
+
+    /*
+     * =============================================================
+     * INDICATED AVAILABILITY MESSAGE
+     * =============================================================
+     */
+
+    private String buildIndicatedAvailabilityMessage(
+            String availabilityMessage) {
+
+        if (availabilityMessage == null ||
+                availabilityMessage.isBlank()) {
+
+            return buildBusinessConfirmationMessage();
+        }
+
+        return availabilityMessage
+                + " However, final availability needs to be "
+                + "confirmed by the business. "
+                + "We will contact you as soon as possible.";
+    }
+
+    /*
+     * =============================================================
+     * BUSINESS CONFIRMATION MESSAGE
+     * =============================================================
+     *
+     * This deliberately does not mention a specific business name.
+     *
+     * The same message can therefore be used for:
+     *
+     * - hotels
+     * - restaurants
+     * - healthcare businesses
+     * - future business types
+     */
+
+    private String buildBusinessConfirmationMessage() {
+
+        return "Thank you. We have received your request. "
+                + "The business will confirm availability "
+                + "and contact you as soon as possible.";
+    }
+
+    /*
+     * =============================================================
+     * BUSINESS-BASED CLARIFICATION
+     * =============================================================
+     */
+
+    private String buildBusinessClarificationReply(
+            BusinessProfile businessProfile) {
+
+        List<String> services =
+                businessProfile.knowledge().services();
+
+        if (services == null || services.isEmpty()) {
+
+            return "How can I help you?";
+        }
+
+        return "I can currently help with "
+                + String.join(
+                " and ",
+                services
+        )
+                + ". How can I help?";
+    }
+
+    /*
+     * =============================================================
+     * BUILD FOLLOW-UP QUESTION
+     * =============================================================
+     */
+
+    private String buildReply(
+            List<String> missingFields,
+            BusinessProfile businessProfile,
+            String service) {
+
+        String field =
+                missingFields.get(0);
+
+        RequestDefinition definition =
+                businessProfile.services()
+                        .stream()
+                        .filter(candidate ->
+                                candidate.requestType()
+                                        .equalsIgnoreCase(service))
+                        .findFirst()
+                        .orElse(null);
+
+        if (definition != null &&
+                definition.slotPrompts().containsKey(field)) {
+
+            return definition.slotPrompts()
+                    .get(field);
+        }
+
+        return "Could you please provide "
+                + field.replaceAll(
+                "([a-z])([A-Z])",
+                "$1 $2"
+        ).toLowerCase()
+                + "?";
     }
 }
