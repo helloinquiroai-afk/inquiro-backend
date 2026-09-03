@@ -8,6 +8,7 @@ import com.inquiro.availability.AvailabilityResult;
 import com.inquiro.availability.AvailabilityService;
 import com.inquiro.business.BusinessAccount;
 import com.inquiro.business.BusinessAccountRepository;
+import com.inquiro.business.BusinessBoundaryService;
 import com.inquiro.business.BusinessProfile;
 import com.inquiro.business.BusinessRequest;
 import com.inquiro.business.BusinessRequestService;
@@ -35,6 +36,7 @@ public class ConversationService {
     private final BusinessAccountRepository businessAccountRepository;
     private final AvailabilityService availabilityService;
     private final BusinessRequestService businessRequestService;
+    private final BusinessBoundaryService businessBoundaryService;
 
     public InquiryResponse process(
             String sessionId,
@@ -192,7 +194,7 @@ public class ConversationService {
          * =========================================================
          */
 
-            ConversationIntentAnalysis intent =
+        ConversationIntentAnalysis intent =
                 aiService.analyzeConversationIntent(
                         businessProfile,
                         session.getInquiry().service(),
@@ -405,15 +407,13 @@ public class ConversationService {
      * PROCESS COMPLETED BUSINESS REQUEST
      * =============================================================
      *
-     * At this point:
+     * Flow:
      *
-     * - customer intent is known
-     * - required information is collected
-     * - availability may or may not be reliable
+     * 1. Validate business boundary
+     * 2. Check availability
+     * 3. Create business request
+     * 4. Notify customer
      *
-     * AvailabilityService determines what Inquiro currently knows.
-     *
-     * BusinessRequestService records the request for the business.
      */
 
     private InquiryResponse processCompletedRequest(
@@ -433,7 +433,64 @@ public class ConversationService {
 
         /*
          * =========================================================
-         * CHECK CURRENT AVAILABILITY INFORMATION
+         * 1. CHECK BUSINESS BOUNDARY
+         * =========================================================
+         *
+         * This is intentionally BEFORE availability.
+         *
+         * Availability should only be checked for services
+         * that the business actually supports.
+         */
+
+        BusinessBoundaryService.BoundaryResult boundary =
+                businessBoundaryService.check(
+                        inquiry.service(),
+                        businessAccount.profile()
+                );
+
+        System.out.println(
+                "Business Boundary Status : "
+                        + boundary.status()
+        );
+
+        if (boundary.message() != null) {
+
+            System.out.println(
+                    "Business Boundary Message : "
+                            + boundary.message()
+            );
+        }
+
+        /*
+         * =========================================================
+         * REQUEST OUTSIDE BUSINESS BOUNDARY
+         * =========================================================
+         */
+
+        if (boundary.status()
+                != BusinessBoundaryService.BoundaryStatus.SUPPORTED) {
+
+            /*
+             * The customer request is complete, but we must not
+             * create a BusinessRequest because the business has
+             * not declared this service as supported.
+             */
+
+            conversationStore.remove(
+                    customerId
+            );
+
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    boundary.message()
+            );
+        }
+
+        /*
+         * =========================================================
+         * 2. CHECK CURRENT AVAILABILITY INFORMATION
          * =========================================================
          */
 
@@ -456,7 +513,7 @@ public class ConversationService {
 
         /*
          * =========================================================
-         * CREATE BUSINESS REQUEST
+         * 3. CREATE BUSINESS REQUEST
          * =========================================================
          *
          * BusinessRequestService decides whether the request
@@ -482,7 +539,7 @@ public class ConversationService {
 
         /*
          * =========================================================
-         * CONVERSATION IS COMPLETE
+         * 4. CONVERSATION IS COMPLETE
          * =========================================================
          */
 
@@ -492,7 +549,7 @@ public class ConversationService {
 
         /*
          * =========================================================
-         * CUSTOMER RESPONSE
+         * 5. CUSTOMER RESPONSE
          * =========================================================
          */
 
