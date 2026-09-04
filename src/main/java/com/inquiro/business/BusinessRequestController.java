@@ -27,12 +27,18 @@ public class BusinessRequestController {
             @RequestParam String businessId) {
 
         return ResponseEntity.ok(
-                businessRequestStore.findByBusinessId(businessId)
+                businessRequestStore.findByBusinessId(
+                        businessId
+                )
         );
     }
 
     /**
-     * Get pending requests.
+     * Get requests that require business action.
+     *
+     * Includes:
+     * - PENDING_CONFIRMATION
+     * - PENDING_REVIEW
      *
      * GET
      * /api/business/requests/pending?businessId=biz_001
@@ -42,7 +48,9 @@ public class BusinessRequestController {
             @RequestParam String businessId) {
 
         return ResponseEntity.ok(
-                businessRequestStore.findPendingByBusinessId(businessId)
+                businessRequestStore.findPendingByBusinessId(
+                        businessId
+                )
         );
     }
 
@@ -57,9 +65,10 @@ public class BusinessRequestController {
             @PathVariable String requestId) {
 
         BusinessRequest request =
-                businessRequestService.confirm(requestId);
+                businessRequestService.confirm(
+                        requestId
+                );
 
-        // Notify customer through Messenger
         messengerSendService.sendText(
                 request.customerId(),
                 "Your "
@@ -81,9 +90,10 @@ public class BusinessRequestController {
             @PathVariable String requestId) {
 
         BusinessRequest request =
-                businessRequestService.reject(requestId);
+                businessRequestService.reject(
+                        requestId
+                );
 
-        // Notify customer through Messenger
         messengerSendService.sendText(
                 request.customerId(),
                 "Unfortunately, your "
@@ -101,7 +111,8 @@ public class BusinessRequestController {
             return "business";
         }
 
-        return service.toLowerCase()
+        return service
+                .toLowerCase()
                 .replace('_', ' ');
     }
 }

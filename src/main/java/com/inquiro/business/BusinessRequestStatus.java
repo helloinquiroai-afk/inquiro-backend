@@ -9,6 +9,12 @@ public enum BusinessRequestStatus {
     PENDING_CONFIRMATION,
 
     /**
+     * Request requires a member of the business
+     * to review it manually.
+     */
+    PENDING_REVIEW,
+
+    /**
      * Business has confirmed the request.
      */
     CONFIRMED,

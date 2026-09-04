@@ -61,7 +61,11 @@ public class BusinessRequestStore {
     }
 
     /**
-     * Get pending requests for a business.
+     * Get requests that require business action.
+     *
+     * Includes:
+     * - PENDING_CONFIRMATION
+     * - PENDING_REVIEW
      */
     public List<BusinessRequest> findPendingByBusinessId(
             String businessId) {
@@ -72,12 +76,20 @@ public class BusinessRequestStore {
         for (BusinessRequest request :
                 requests.values()) {
 
-            if (request.businessId()
-                    .equals(businessId)
-                    &&
-                    request.status()
-                            == BusinessRequestStatus
-                            .PENDING_CONFIRMATION) {
+            if (!request.businessId()
+                    .equals(businessId)) {
+
+                continue;
+            }
+
+            BusinessRequestStatus status =
+                    request.status();
+
+            if (status ==
+                    BusinessRequestStatus.PENDING_CONFIRMATION
+                    ||
+                    status ==
+                            BusinessRequestStatus.PENDING_REVIEW) {
 
                 result.add(request);
             }

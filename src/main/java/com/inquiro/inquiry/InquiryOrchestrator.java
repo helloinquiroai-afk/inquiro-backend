@@ -6,6 +6,7 @@ import com.inquiro.ai.RequestAnalysisValidator;
 import com.inquiro.availability.AvailabilityResult;
 import com.inquiro.availability.AvailabilityService;
 import com.inquiro.availability.AvailabilityStatus;
+import com.inquiro.business.BusinessBoundaryService;
 import com.inquiro.business.BusinessProfile;
 import com.inquiro.business.BusinessProfileProvider;
 import com.inquiro.business.BusinessQuestionService;
@@ -27,6 +28,7 @@ public class InquiryOrchestrator {
     private final BusinessProfileProvider businessProfileProvider;
     private final BusinessQuestionService businessQuestionService;
     private final AvailabilityService availabilityService;
+    private final BusinessBoundaryService businessBoundaryService;
 
     public InquiryResponse process(String message) {
 
@@ -170,7 +172,71 @@ public class InquiryOrchestrator {
 
         /*
          * =========================================================
-         * 6. FIND MISSING REQUIRED INFORMATION
+         * 6. CHECK BUSINESS BOUNDARY
+         * =========================================================
+         *
+         * Do this BEFORE slot filling.
+         *
+         * The AI may recognize a service even when the business
+         * does not support it.
+         *
+         * Examples:
+         *
+         * ENGINE_REPLACEMENT -> NOT_SUPPORTED
+         * INSURANCE_CLAIM    -> REQUIRES_HUMAN
+         * BRAKE_REPAIR       -> SUPPORTED
+         */
+
+        BusinessBoundaryService.BoundaryResult boundary =
+                businessBoundaryService.check(
+                        analysis.intent(),
+                        businessProfile
+                );
+
+        System.out.println(
+                "Early Business Boundary Status : "
+                        + boundary.status()
+        );
+
+        if (boundary.message() != null) {
+
+            System.out.println(
+                    "Early Business Boundary Message : "
+                            + boundary.message()
+            );
+        }
+
+        /*
+         * =========================================================
+         * REQUEST OUTSIDE BUSINESS BOUNDARY
+         * =========================================================
+         *
+         * Do not perform slot filling.
+         * Do not perform availability checking.
+         * Do not create a business request.
+         */
+
+        if (boundary.status()
+                != BusinessBoundaryService.BoundaryStatus.SUPPORTED) {
+
+            InquiryResult inquiry =
+                    new InquiryResult(
+                            businessProfile.businessType(),
+                            analysis.intent(),
+                            analysis.entities()
+                    );
+
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    boundary.message()
+            );
+        }
+
+        /*
+         * =========================================================
+         * 7. FIND MISSING REQUIRED INFORMATION
          * =========================================================
          */
 
@@ -182,7 +248,7 @@ public class InquiryOrchestrator {
 
         /*
          * =========================================================
-         * 7. CREATE INQUIRY RESULT
+         * 8. CREATE INQUIRY RESULT
          * =========================================================
          */
 
@@ -195,7 +261,7 @@ public class InquiryOrchestrator {
 
         /*
          * =========================================================
-         * 8. INFORMATION STILL MISSING
+         * 9. INFORMATION STILL MISSING
          * =========================================================
          *
          * Do NOT check availability yet.
@@ -220,7 +286,7 @@ public class InquiryOrchestrator {
 
         /*
          * =========================================================
-         * 9. ALL REQUIRED INFORMATION COLLECTED
+         * 10. ALL REQUIRED INFORMATION COLLECTED
          * =========================================================
          *
          * Now we can ask the availability layer.
@@ -251,7 +317,7 @@ public class InquiryOrchestrator {
 
         /*
          * =========================================================
-         * 10. BUILD AVAILABILITY RESPONSE
+         * 11. BUILD AVAILABILITY RESPONSE
          * =========================================================
          */
 

@@ -467,14 +467,54 @@ public class ConversationService {
          * =========================================================
          */
 
-        if (boundary.status()
-                != BusinessBoundaryService.BoundaryStatus.SUPPORTED) {
+        /*
+         * =========================================================
+         * REQUEST REQUIRES HUMAN REVIEW
+         * =========================================================
+         */
 
-            /*
-             * The customer request is complete, but we must not
-             * create a BusinessRequest because the business has
-             * not declared this service as supported.
-             */
+        if (boundary.status()
+                == BusinessBoundaryService.BoundaryStatus.REQUIRES_HUMAN) {
+
+            BusinessRequest reviewRequest =
+                    businessRequestService.createForHumanReview(
+                            businessAccount.businessId(),
+                            customerId,
+                            inquiry.service(),
+                            inquiry.fields()
+                    );
+
+            System.out.println(
+                    "Human Review Request Created:"
+            );
+
+            System.out.println(
+                    reviewRequest
+            );
+
+            conversationStore.remove(
+                    customerId
+            );
+
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    "Your request has been received and "
+                            + "requires confirmation from a member "
+                            + "of the business. We will contact you "
+                            + "as soon as possible."
+            );
+        }
+
+        /*
+         * =========================================================
+         * REQUEST IS NOT SUPPORTED
+         * =========================================================
+         */
+
+        if (boundary.status()
+                == BusinessBoundaryService.BoundaryStatus.NOT_SUPPORTED) {
 
             conversationStore.remove(
                     customerId
