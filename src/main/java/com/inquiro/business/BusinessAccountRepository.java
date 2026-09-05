@@ -2,8 +2,11 @@ package com.inquiro.business;
 
 public interface BusinessAccountRepository {
 
-    BusinessAccount findByFacebookPageId(
-            String facebookPageId);
+    BusinessAccount findByBusinessId(
+            String businessId
+    );
 
-    void save(BusinessAccount account);
+    void save(
+            BusinessAccount account
+    );
 }

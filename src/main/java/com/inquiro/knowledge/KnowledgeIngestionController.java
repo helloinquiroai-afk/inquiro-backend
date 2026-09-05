@@ -48,7 +48,6 @@ public class KnowledgeIngestionController {
                     new BusinessAccount(
                             businessId,
                             profile.businessName(),
-                            request.facebookPageId(),
                             profile
                     )
             );

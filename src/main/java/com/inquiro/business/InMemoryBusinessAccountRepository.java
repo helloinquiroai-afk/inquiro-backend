@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class InMemoryBusinessAccountRepository
         implements BusinessAccountRepository {
 
-    private final Map<String, BusinessAccount> accountsByFacebookPageId =
+    private final Map<String, BusinessAccount> accounts =
             new ConcurrentHashMap<>();
 
     public InMemoryBusinessAccountRepository(
@@ -22,26 +22,44 @@ public class InMemoryBusinessAccountRepository
                 new BusinessAccount(
                         "biz_001",
                         profile.businessName(),
-                        "1138575329350155",
                         profile
                 )
         );
     }
 
     @Override
-    public BusinessAccount findByFacebookPageId(
-            String facebookPageId) {
+    public BusinessAccount findByBusinessId(
+            String businessId) {
 
-        return accountsByFacebookPageId.get(
-                facebookPageId
+        if (businessId == null || businessId.isBlank()) {
+            return null;
+        }
+
+        return accounts.get(
+                businessId
         );
     }
 
     @Override
-    public void save(BusinessAccount account) {
+    public void save(
+            BusinessAccount account) {
 
-        accountsByFacebookPageId.put(
-                account.facebookPageId(),
+        if (account == null) {
+            throw new IllegalArgumentException(
+                    "Business account cannot be null"
+            );
+        }
+
+        if (account.businessId() == null
+                || account.businessId().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Business ID cannot be null or blank"
+            );
+        }
+
+        accounts.put(
+                account.businessId(),
                 account
         );
     }

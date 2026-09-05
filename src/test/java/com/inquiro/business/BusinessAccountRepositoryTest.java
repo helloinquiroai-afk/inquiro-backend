@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class BusinessAccountRepositoryTest {
 
     @Test
-    void shouldFindBusinessByFacebookPageId() {
+    void shouldFindBusinessByBusinessId() {
 
         BusinessProfileProvider profileProvider =
                 new BusinessProfileProvider();
@@ -18,8 +18,8 @@ class BusinessAccountRepositoryTest {
                 );
 
         BusinessAccount account =
-                repository.findByFacebookPageId(
-                        "1138575329350155"
+                repository.findByBusinessId(
+                        "biz_001"
                 );
 
         assertNotNull(account);
@@ -34,16 +34,14 @@ class BusinessAccountRepositoryTest {
                 account.businessName()
         );
 
-        assertEquals(
-                "1138575329350155",
-                account.facebookPageId()
+        assertNotNull(
+                account.profile()
         );
-
-        assertNotNull(account.profile());
     }
 
+
     @Test
-    void shouldReturnNullForUnknownFacebookPage() {
+    void shouldReturnNullForUnknownBusinessId() {
 
         BusinessProfileProvider profileProvider =
                 new BusinessProfileProvider();
@@ -54,8 +52,8 @@ class BusinessAccountRepositoryTest {
                 );
 
         BusinessAccount account =
-                repository.findByFacebookPageId(
-                        "unknown-page"
+                repository.findByBusinessId(
+                        "unknown-business"
                 );
 
         assertNull(account);

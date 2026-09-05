@@ -9,6 +9,9 @@ import com.inquiro.availability.AvailabilityService;
 import com.inquiro.business.BusinessAccount;
 import com.inquiro.business.BusinessAccountRepository;
 import com.inquiro.business.BusinessBoundaryService;
+import com.inquiro.business.BusinessChannel;
+import com.inquiro.business.BusinessChannelRepository;
+import com.inquiro.business.BusinessChannelType;
 import com.inquiro.business.BusinessProfile;
 import com.inquiro.business.BusinessRequest;
 import com.inquiro.business.BusinessRequestService;
@@ -30,17 +33,27 @@ import java.util.Map;
 public class ConversationService {
 
     private final ConversationStore conversationStore;
+
     private final InquiryOrchestrator inquiryOrchestrator;
+
     private final AiService aiService;
+
     private final SlotFillingEngine slotFillingEngine;
+
     private final BusinessAccountRepository businessAccountRepository;
+
+    private final BusinessChannelRepository businessChannelRepository;
+
     private final AvailabilityService availabilityService;
+
     private final BusinessRequestService businessRequestService;
+
     private final BusinessBoundaryService businessBoundaryService;
+
 
     public InquiryResponse process(
             String sessionId,
-            String facebookPageId,
+            String externalChannelId,
             String message) {
 
         System.out.println(
@@ -56,7 +69,7 @@ public class ConversationService {
         );
 
         System.out.println(
-                "Facebook Page ID : " + facebookPageId
+                "External Channel ID : " + externalChannelId
         );
 
         System.out.println(
@@ -67,22 +80,82 @@ public class ConversationService {
                 "=================================================="
         );
 
+
         /*
          * =========================================================
-         * 1. RESOLVE BUSINESS
+         * 1. RESOLVE CHANNEL
          * =========================================================
+         *
+         * The external platform identifier belongs to a channel.
+         *
+         * It does NOT directly identify the business.
+         *
+         * Example:
+         *
+         * Messenger Page ID
+         *        ↓
+         * BusinessChannel
+         *        ↓
+         * businessId
+         */
+
+        BusinessChannel channel =
+                businessChannelRepository
+                        .findByTypeAndExternalId(
+                                BusinessChannelType.MESSENGER,
+                                externalChannelId
+                        );
+
+        if (channel == null) {
+
+            throw new IllegalStateException(
+                    "No business channel configured for Messenger ID: "
+                            + externalChannelId
+            );
+        }
+
+        if (!channel.enabled()) {
+
+            throw new IllegalStateException(
+                    "Business channel is disabled: "
+                            + externalChannelId
+            );
+        }
+
+        System.out.println(
+                "Channel Type : "
+                        + channel.type()
+        );
+
+        System.out.println(
+                "Channel ID   : "
+                        + channel.channelId()
+        );
+
+        System.out.println(
+                "Business ID  : "
+                        + channel.businessId()
+        );
+
+
+        /*
+         * =========================================================
+         * 2. RESOLVE BUSINESS
+         * =========================================================
+         *
+         * The business is resolved independently of the channel.
          */
 
         BusinessAccount businessAccount =
-                businessAccountRepository.findByFacebookPageId(
-                        facebookPageId
+                businessAccountRepository.findByBusinessId(
+                        channel.businessId()
                 );
 
         if (businessAccount == null) {
 
             throw new IllegalStateException(
-                    "No business configured for Facebook Page: "
-                            + facebookPageId
+                    "No business configured for business ID: "
+                            + channel.businessId()
             );
         }
 
@@ -99,24 +172,28 @@ public class ConversationService {
                         + businessAccount.businessId()
         );
 
+
         /*
          * =========================================================
-         * 2. LOAD CONVERSATION
+         * 3. LOAD CONVERSATION
          * =========================================================
          */
 
         ConversationSession session =
                 conversationStore.get(sessionId);
 
+
         /*
          * =========================================================
-         * 3. NEW CONVERSATION
+         * 4. NEW CONVERSATION
          * =========================================================
          */
 
         if (session == null) {
 
-            System.out.println("NEW CONVERSATION");
+            System.out.println(
+                    "NEW CONVERSATION"
+            );
 
             InquiryResponse response =
                     inquiryOrchestrator.process(
@@ -125,6 +202,7 @@ public class ConversationService {
                     );
 
             printResponse(response);
+
 
             /*
              * =====================================================
@@ -143,6 +221,7 @@ public class ConversationService {
                 return response;
             }
 
+
             /*
              * =====================================================
              * REQUEST IS ALREADY COMPLETE
@@ -151,7 +230,9 @@ public class ConversationService {
 
             if (response.status()
                     == InquiryStatus.INFORMATION_COLLECTED
-                    && isBusinessRequest(response.inquiry())) {
+                    && isBusinessRequest(
+                    response.inquiry()
+            )) {
 
                 return processCompletedRequest(
                         businessAccount,
@@ -163,9 +244,10 @@ public class ConversationService {
             return response;
         }
 
+
         /*
          * =========================================================
-         * 4. EXISTING CONVERSATION
+         * 5. EXISTING CONVERSATION
          * =========================================================
          */
 
@@ -188,9 +270,10 @@ public class ConversationService {
                         + session.getMissingFields()
         );
 
+
         /*
          * =========================================================
-         * 5. DETERMINE FOLLOW-UP OR NEW REQUEST
+         * 6. DETERMINE FOLLOW-UP OR NEW REQUEST
          * =========================================================
          */
 
@@ -213,22 +296,35 @@ public class ConversationService {
                         + intent.confidence()
         );
 
+
         /*
          * =========================================================
-         * 6. NEW REQUEST
+         * 7. NEW REQUEST
          * =========================================================
          */
 
         if ("NEW_REQUEST".equalsIgnoreCase(
-                intent.intent())) {
+                intent.intent()
+        )) {
 
             System.out.println(
                     "CUSTOMER STARTED A NEW REQUEST"
             );
 
+
+            /*
+             * Remove the old conversation first.
+             */
+
             conversationStore.remove(
                     sessionId
             );
+
+
+            /*
+             * Analyze the message as a completely
+             * new request using the current business profile.
+             */
 
             InquiryResponse response =
                     inquiryOrchestrator.process(
@@ -237,6 +333,7 @@ public class ConversationService {
                     );
 
             printResponse(response);
+
 
             /*
              * Save incomplete new request.
@@ -253,13 +350,16 @@ public class ConversationService {
                 return response;
             }
 
+
             /*
              * Process complete new request.
              */
 
             if (response.status()
                     == InquiryStatus.INFORMATION_COLLECTED
-                    && isBusinessRequest(response.inquiry())) {
+                    && isBusinessRequest(
+                    response.inquiry()
+            )) {
 
                 return processCompletedRequest(
                         businessAccount,
@@ -271,9 +371,10 @@ public class ConversationService {
             return response;
         }
 
+
         /*
          * =========================================================
-         * 7. FOLLOW-UP TO EXISTING REQUEST
+         * 8. FOLLOW-UP TO EXISTING REQUEST
          * =========================================================
          */
 
@@ -294,9 +395,10 @@ public class ConversationService {
                         + replyAnalysis.entities()
         );
 
+
         /*
          * =========================================================
-         * 8. MERGE CUSTOMER INFORMATION
+         * 9. MERGE CUSTOMER INFORMATION
          * =========================================================
          */
 
@@ -311,12 +413,26 @@ public class ConversationService {
                         + fields
         );
 
+
+        /*
+         * =========================================================
+         * 10. BUILD UPDATED REQUEST ANALYSIS
+         * =========================================================
+         */
+
         RequestAnalysis updatedAnalysis =
                 new RequestAnalysis(
                         session.getInquiry().service(),
                         1.0,
                         fields
                 );
+
+
+        /*
+         * =========================================================
+         * 11. BUILD UPDATED INQUIRY
+         * =========================================================
+         */
 
         InquiryResult updatedInquiry =
                 new InquiryResult(
@@ -325,9 +441,10 @@ public class ConversationService {
                         fields
                 );
 
+
         /*
          * =========================================================
-         * 9. CHECK REQUIRED INFORMATION
+         * 12. CHECK REQUIRED INFORMATION
          * =========================================================
          */
 
@@ -342,9 +459,10 @@ public class ConversationService {
                         + missing
         );
 
+
         /*
          * =========================================================
-         * 10. STILL MISSING INFORMATION
+         * 13. STILL MISSING INFORMATION
          * =========================================================
          */
 
@@ -385,9 +503,10 @@ public class ConversationService {
             );
         }
 
+
         /*
          * =========================================================
-         * 11. ALL INFORMATION COLLECTED
+         * 14. ALL INFORMATION COLLECTED
          * =========================================================
          */
 
@@ -402,6 +521,7 @@ public class ConversationService {
         );
     }
 
+
     /*
      * =============================================================
      * PROCESS COMPLETED BUSINESS REQUEST
@@ -410,9 +530,12 @@ public class ConversationService {
      * Flow:
      *
      * 1. Validate business boundary
-     * 2. Check availability
-     * 3. Create business request
-     * 4. Notify customer
+     * 2. If human review required → create review request
+     * 3. If unsupported → stop
+     * 4. Check availability
+     * 5. Create business request
+     * 6. Clear conversation
+     * 7. Return customer response
      *
      */
 
@@ -420,6 +543,13 @@ public class ConversationService {
             BusinessAccount businessAccount,
             String customerId,
             InquiryResult inquiry) {
+
+
+        /*
+         * =========================================================
+         * NOT A BUSINESS REQUEST
+         * =========================================================
+         */
 
         if (!isBusinessRequest(inquiry)) {
 
@@ -431,15 +561,16 @@ public class ConversationService {
             );
         }
 
+
         /*
          * =========================================================
          * 1. CHECK BUSINESS BOUNDARY
          * =========================================================
          *
-         * This is intentionally BEFORE availability.
+         * This must happen BEFORE availability.
          *
          * Availability should only be checked for services
-         * that the business actually supports.
+         * supported by the business.
          */
 
         BusinessBoundaryService.BoundaryResult boundary =
@@ -461,15 +592,10 @@ public class ConversationService {
             );
         }
 
-        /*
-         * =========================================================
-         * REQUEST OUTSIDE BUSINESS BOUNDARY
-         * =========================================================
-         */
 
         /*
          * =========================================================
-         * REQUEST REQUIRES HUMAN REVIEW
+         * 2. REQUEST REQUIRES HUMAN REVIEW
          * =========================================================
          */
 
@@ -507,9 +633,10 @@ public class ConversationService {
             );
         }
 
+
         /*
          * =========================================================
-         * REQUEST IS NOT SUPPORTED
+         * 3. REQUEST IS NOT SUPPORTED
          * =========================================================
          */
 
@@ -528,9 +655,10 @@ public class ConversationService {
             );
         }
 
+
         /*
          * =========================================================
-         * 2. CHECK CURRENT AVAILABILITY INFORMATION
+         * 4. CHECK CURRENT AVAILABILITY INFORMATION
          * =========================================================
          */
 
@@ -551,13 +679,11 @@ public class ConversationService {
                         + availability.message()
         );
 
+
         /*
          * =========================================================
-         * 3. CREATE BUSINESS REQUEST
+         * 5. CREATE BUSINESS REQUEST
          * =========================================================
-         *
-         * BusinessRequestService decides whether the request
-         * should be PENDING_CONFIRMATION, CONFIRMED, etc.
          */
 
         BusinessRequest businessRequest =
@@ -577,9 +703,10 @@ public class ConversationService {
                 businessRequest
         );
 
+
         /*
          * =========================================================
-         * 4. CONVERSATION IS COMPLETE
+         * 6. CONVERSATION IS COMPLETE
          * =========================================================
          */
 
@@ -587,9 +714,10 @@ public class ConversationService {
                 customerId
         );
 
+
         /*
          * =========================================================
-         * 5. CUSTOMER RESPONSE
+         * 7. CUSTOMER RESPONSE
          * =========================================================
          */
 
@@ -598,6 +726,7 @@ public class ConversationService {
                 availability
         );
     }
+
 
     /*
      * =============================================================
@@ -623,6 +752,7 @@ public class ConversationService {
         );
     }
 
+
     /*
      * =============================================================
      * DETERMINE BUSINESS REQUEST
@@ -639,8 +769,8 @@ public class ConversationService {
         String service =
                 inquiry.service();
 
-        if (service == null ||
-                service.isBlank()) {
+        if (service == null
+                || service.isBlank()) {
 
             return false;
         }
@@ -649,6 +779,7 @@ public class ConversationService {
                 && !"GREETING".equalsIgnoreCase(service)
                 && !"BUSINESS_QUESTION".equalsIgnoreCase(service);
     }
+
 
     /*
      * =============================================================
@@ -710,6 +841,7 @@ public class ConversationService {
         };
     }
 
+
     /*
      * =============================================================
      * DEFAULT PENDING MESSAGE
@@ -722,6 +854,7 @@ public class ConversationService {
                 + "The business will confirm availability "
                 + "and contact you shortly.";
     }
+
 
     /*
      * =============================================================
@@ -746,8 +879,9 @@ public class ConversationService {
                         .findFirst()
                         .orElse(null);
 
-        if (definition != null &&
-                definition.slotPrompts().containsKey(field)) {
+        if (definition != null
+                && definition.slotPrompts()
+                .containsKey(field)) {
 
             return definition.slotPrompts()
                     .get(field);
@@ -760,6 +894,7 @@ public class ConversationService {
         ).toLowerCase()
                 + "?";
     }
+
 
     /*
      * =============================================================
