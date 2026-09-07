@@ -2,6 +2,8 @@ package com.inquiro.business;
 
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -17,11 +19,7 @@ public class InMemoryBusinessChannelRepository
         /*
          * Temporary development configuration.
          *
-         * This connects the current Messenger Page ID
-         * to the business account.
-         *
-         * Later this will come from persistent business
-         * channel configuration.
+         * Existing Messenger connection for biz_001.
          */
         save(
                 new BusinessChannel(
@@ -52,12 +50,63 @@ public class InMemoryBusinessChannelRepository
     }
 
     @Override
+    public List<BusinessChannel> findByBusinessId(
+            String businessId) {
+
+        if (businessId == null || businessId.isBlank()) {
+            return List.of();
+        }
+
+        return new ArrayList<>(
+                channels.values()
+                        .stream()
+                        .filter(channel ->
+                                businessId.equals(
+                                        channel.businessId()
+                                )
+                        )
+                        .toList()
+        );
+    }
+
+    @Override
     public void save(
             BusinessChannel channel) {
 
         if (channel == null) {
             throw new IllegalArgumentException(
                     "Business channel cannot be null"
+            );
+        }
+
+        if (channel.channelId() == null
+                || channel.channelId().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Channel ID cannot be null or blank"
+            );
+        }
+
+        if (channel.businessId() == null
+                || channel.businessId().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Business ID cannot be null or blank"
+            );
+        }
+
+        if (channel.type() == null) {
+
+            throw new IllegalArgumentException(
+                    "Channel type cannot be null"
+            );
+        }
+
+        if (channel.externalId() == null
+                || channel.externalId().isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "External ID cannot be null or blank"
             );
         }
 
