@@ -1,36 +1,15 @@
 package com.inquiro.business;
 
-import org.springframework.stereotype.Repository;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Repository
 public class InMemoryBusinessChannelRepository
         implements BusinessChannelRepository {
 
     private final Map<String, BusinessChannel> channels =
             new ConcurrentHashMap<>();
-
-    public InMemoryBusinessChannelRepository() {
-
-        /*
-         * Temporary development configuration.
-         *
-         * Existing Messenger connection for biz_001.
-         */
-        save(
-                new BusinessChannel(
-                        "channel_messenger_001",
-                        "biz_001",
-                        BusinessChannelType.MESSENGER,
-                        "1138575329350155",
-                        true
-                )
-        );
-    }
 
     @Override
     public BusinessChannel findByTypeAndExternalId(

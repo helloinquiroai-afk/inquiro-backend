@@ -1,31 +1,13 @@
 package com.inquiro.business;
 
-import org.springframework.stereotype.Repository;
-
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Repository
 public class InMemoryBusinessAccountRepository
         implements BusinessAccountRepository {
 
     private final Map<String, BusinessAccount> accounts =
             new ConcurrentHashMap<>();
-
-    public InMemoryBusinessAccountRepository(
-            BusinessProfileProvider profileProvider) {
-
-        BusinessProfile profile =
-                profileProvider.get();
-
-        save(
-                new BusinessAccount(
-                        "biz_001",
-                        profile.businessName(),
-                        profile
-                )
-        );
-    }
 
     @Override
     public BusinessAccount findByBusinessId(

@@ -9,13 +9,25 @@ class BusinessAccountRepositoryTest {
     @Test
     void shouldFindBusinessByBusinessId() {
 
-        BusinessProfileProvider profileProvider =
-                new BusinessProfileProvider();
-
         InMemoryBusinessAccountRepository repository =
-                new InMemoryBusinessAccountRepository(
-                        profileProvider
+                new InMemoryBusinessAccountRepository();
+
+        BusinessProfile profile =
+                new BusinessProfile(
+                        "ABC Auto Care",
+                        "VEHICLE_SERVICE_CENTER",
+                        "Vehicle maintenance and inspection services.",
+                        java.util.List.of(),
+                        null
                 );
+
+        repository.save(
+                new BusinessAccount(
+                        "biz_001",
+                        "ABC Auto Care",
+                        profile
+                )
+        );
 
         BusinessAccount account =
                 repository.findByBusinessId(
@@ -39,17 +51,11 @@ class BusinessAccountRepositoryTest {
         );
     }
 
-
     @Test
     void shouldReturnNullForUnknownBusinessId() {
 
-        BusinessProfileProvider profileProvider =
-                new BusinessProfileProvider();
-
         InMemoryBusinessAccountRepository repository =
-                new InMemoryBusinessAccountRepository(
-                        profileProvider
-                );
+                new InMemoryBusinessAccountRepository();
 
         BusinessAccount account =
                 repository.findByBusinessId(

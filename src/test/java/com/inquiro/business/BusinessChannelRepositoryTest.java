@@ -12,6 +12,17 @@ class BusinessChannelRepositoryTest {
         InMemoryBusinessChannelRepository repository =
                 new InMemoryBusinessChannelRepository();
 
+        BusinessChannel channelToSave =
+                new BusinessChannel(
+                        "channel_messenger_001",
+                        "biz_001",
+                        BusinessChannelType.MESSENGER,
+                        "1138575329350155",
+                        true
+                );
+
+        repository.save(channelToSave);
+
         BusinessChannel channel =
                 repository.findByTypeAndExternalId(
                         BusinessChannelType.MESSENGER,
@@ -44,7 +55,6 @@ class BusinessChannelRepositoryTest {
                 channel.enabled()
         );
     }
-
 
     @Test
     void shouldReturnNullForUnknownChannel() {

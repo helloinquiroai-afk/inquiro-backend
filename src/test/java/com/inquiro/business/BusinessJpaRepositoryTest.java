@@ -15,7 +15,6 @@ class BusinessJpaRepositoryTest {
     @Autowired
     private BusinessChannelJpaRepository businessChannelJpaRepository;
 
-
     @Test
     void shouldSaveAndFindBusinessAccount() {
 
@@ -24,7 +23,8 @@ class BusinessJpaRepositoryTest {
                         "biz_test_001",
                         "Test Dental Care",
                         "DENTAL_CLINIC",
-                        "Test dental clinic"
+                        "Test dental clinic",
+                        "{\"businessName\":\"Test Dental Care\"}"
                 );
 
         businessAccountJpaRepository.save(entity);
@@ -51,7 +51,6 @@ class BusinessJpaRepositoryTest {
                 found.getBusinessType()
         );
     }
-
 
     @Test
     void shouldSaveAndFindBusinessChannel() {

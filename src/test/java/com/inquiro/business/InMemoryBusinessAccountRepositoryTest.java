@@ -9,13 +9,11 @@ class InMemoryBusinessAccountRepositoryTest {
     @Test
     void shouldAllowBusinessAccountWithoutFacebookOrAnyChannel() {
 
+        InMemoryBusinessAccountRepository repository =
+                new InMemoryBusinessAccountRepository();
+
         BusinessProfileProvider profileProvider =
                 new BusinessProfileProvider();
-
-        InMemoryBusinessAccountRepository repository =
-                new InMemoryBusinessAccountRepository(
-                        profileProvider
-                );
 
         BusinessProfile profile =
                 profileProvider.get();
