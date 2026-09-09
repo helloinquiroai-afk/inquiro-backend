@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 public class ConversationController {
 
     private final ConversationService conversationService;
-    private final ConversationStore conversationStore;
+    private final ConversationRepository conversationRepository;
 
     @PostMapping("/message")
     public InquiryResponse message(
@@ -27,6 +27,6 @@ public class ConversationController {
     public void clear(
             @PathVariable String sessionId) {
 
-        conversationStore.remove(sessionId);
+        conversationRepository.remove(sessionId);
     }
 }

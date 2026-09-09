@@ -32,7 +32,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ConversationService {
 
-    private final ConversationStore conversationStore;
+    private final ConversationRepository conversationRepository;
 
     private final InquiryOrchestrator inquiryOrchestrator;
 
@@ -180,7 +180,7 @@ public class ConversationService {
          */
 
         ConversationSession session =
-                conversationStore.get(sessionId);
+                conversationRepository.find(sessionId);
 
 
         /*
@@ -316,7 +316,7 @@ public class ConversationService {
              * Remove the old conversation first.
              */
 
-            conversationStore.remove(
+            conversationRepository.remove(
                     sessionId
             );
 
@@ -480,7 +480,7 @@ public class ConversationService {
                     "Saving Updated Conversation"
             );
 
-            conversationStore.save(
+            conversationRepository.save(
                     updatedSession
             );
 
@@ -618,7 +618,7 @@ public class ConversationService {
                     reviewRequest
             );
 
-            conversationStore.remove(
+            conversationRepository.remove(
                     customerId
             );
 
@@ -643,7 +643,7 @@ public class ConversationService {
         if (boundary.status()
                 == BusinessBoundaryService.BoundaryStatus.NOT_SUPPORTED) {
 
-            conversationStore.remove(
+            conversationRepository.remove(
                     customerId
             );
 
@@ -710,7 +710,7 @@ public class ConversationService {
          * =========================================================
          */
 
-        conversationStore.remove(
+        conversationRepository.remove(
                 customerId
         );
 
@@ -742,7 +742,7 @@ public class ConversationService {
                 "Saving conversation..."
         );
 
-        conversationStore.save(
+        conversationRepository.save(
                 new ConversationSession(
                         sessionId,
                         response.inquiry(),
