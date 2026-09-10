@@ -1,0 +1,82 @@
+{
+  "businessName": "Demo Paris Hotel",
+  "businessType": "HOSPITALITY",
+  "description": "Fictional hotel profile for local testing. Replace with verified owner information.",
+  "services": [
+    {
+      "requestType": "ROOM_BOOKING",
+      "description": "Room booking",
+      "requiredSlots": [
+        "location",
+        "checkInDate",
+        "guestCount",
+        "durationNights"
+      ],
+      "slotPrompts": {
+        "location": "Where would you like to stay?",
+        "checkInDate": "What date would you like to check in?",
+        "guestCount": "How many guests will there be?",
+        "durationNights": "How many nights would you like to stay?"
+      }
+    },
+    {
+      "requestType": "AIRPORT_PICKUP",
+      "description": "Airport pickup",
+      "requiredSlots": [
+        "airport",
+        "pickupDate",
+        "pickupTime",
+        "passengerCount",
+        "destination"
+      ],
+      "slotPrompts": {
+        "airport": "Which airport should we collect you from?",
+        "pickupDate": "What date do you need the pickup?",
+        "pickupTime": "What time should we collect you?",
+        "passengerCount": "How many passengers will there be?",
+        "destination": "Where would you like to be dropped off?"
+      }
+    }
+  ],
+  "knowledge": {
+    "businessDescription": "Fictional hotel for demonstration.",
+    "services": [
+      "Room booking",
+      "Airport pickup"
+    ],
+    "products": [],
+    "facts": {
+      "parking": "Free parking is available for hotel guests.",
+      "checkIn": "Check-in is at 2 PM.",
+      "checkOut": "Check-out is at 11 AM."
+    },
+    "faqs": [
+      "Do you have free parking? Yes, free parking is available for hotel guests."
+    ],
+    "policies": [
+      "Contact reception for cancellation terms."
+    ],
+    "instructions": "Use only these verified facts. Do not promise a booking or real-time availability.",
+    "operatingHours": {
+      "reception": "24 hours"
+    },
+    "locations": [
+      "Paris"
+    ],
+    "contactInformation": {},
+    "bookingRules": {},
+    "capabilities": [
+      "Room booking",
+      "Airport pickup"
+    ],
+    "restrictions": [],
+    "boundaries": {
+      "supported": [
+        "ROOM_BOOKING",
+        "AIRPORT_PICKUP"
+      ],
+      "notSupported": [],
+      "requiresHuman": []
+    }
+  }
+}

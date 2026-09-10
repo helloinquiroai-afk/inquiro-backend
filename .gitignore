@@ -31,3 +31,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+# Local secrets and runtime state
+.env
+.env.*
+!.env.example
+data/
+hs_err_pid*.log
