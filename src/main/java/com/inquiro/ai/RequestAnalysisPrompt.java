@@ -106,6 +106,8 @@ public final class RequestAnalysisPrompt {
                 
                 Extract only explicitly provided useful entities.
                 Do not invent fields or values.
+                Return explicit counts and durations as JSON numbers, not phrases or numeric strings.
+                For example, two adults means guestCount: 2. Do not infer counts from family or group.
                 For configured services, prefer the required field names listed above.
                 If the customer provides useful information that does not map to a required field,
                 use a concise camelCase field name.

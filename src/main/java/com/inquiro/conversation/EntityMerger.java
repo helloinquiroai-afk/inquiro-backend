@@ -13,9 +13,13 @@ public final class EntityMerger {
             Map<String, Object> incoming) {
 
         Map<String, Object> merged =
-                new HashMap<>(existing);
+                new HashMap<>(existing == null ? Map.of() : existing);
 
-        merged.putAll(incoming);
+        if (incoming != null) {
+            incoming.forEach((key, value) -> {
+                if (value != null && !String.valueOf(value).isBlank()) merged.put(key, value);
+            });
+        }
 
         return merged;
     }
