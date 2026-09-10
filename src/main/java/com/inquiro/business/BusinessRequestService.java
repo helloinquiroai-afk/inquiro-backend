@@ -12,7 +12,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class BusinessRequestService {
 
-    private final BusinessRequestStore businessRequestStore;
+    private final BusinessRequestRepository businessRequestRepository;
 
     /**
      * Creates a normal business request.
@@ -81,7 +81,7 @@ public class BusinessRequestService {
                         Instant.now()
                 );
 
-        businessRequestStore.save(request);
+        businessRequestRepository.save(request);
 
         return request;
     }
@@ -93,7 +93,7 @@ public class BusinessRequestService {
             String requestId) {
 
         BusinessRequest request =
-                businessRequestStore.findByRequestId(
+                businessRequestRepository.findByRequestId(
                         requestId
                 );
 
@@ -128,7 +128,7 @@ public class BusinessRequestService {
                         request.createdAt()
                 );
 
-        businessRequestStore.save(confirmed);
+        businessRequestRepository.save(confirmed);
 
         return confirmed;
     }
@@ -140,7 +140,7 @@ public class BusinessRequestService {
             String requestId) {
 
         BusinessRequest request =
-                businessRequestStore.findByRequestId(
+                businessRequestRepository.findByRequestId(
                         requestId
                 );
 
@@ -175,7 +175,7 @@ public class BusinessRequestService {
                         request.createdAt()
                 );
 
-        businessRequestStore.save(rejected);
+        businessRequestRepository.save(rejected);
 
         return rejected;
     }

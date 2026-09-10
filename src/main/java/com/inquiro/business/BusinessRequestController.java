@@ -12,62 +12,38 @@ import java.util.List;
 @RequiredArgsConstructor
 public class BusinessRequestController {
 
-    private final BusinessRequestStore businessRequestStore;
+    private final BusinessRequestRepository businessRequestRepository;
     private final BusinessRequestService businessRequestService;
     private final MessengerSendService messengerSendService;
 
-    /**
-     * Get all requests for a business.
-     *
-     * GET
-     * /api/business/requests?businessId=biz_001
-     */
     @GetMapping
     public ResponseEntity<List<BusinessRequest>> getRequests(
             @RequestParam String businessId) {
 
         return ResponseEntity.ok(
-                businessRequestStore.findByBusinessId(
+                businessRequestRepository.findByBusinessId(
                         businessId
                 )
         );
     }
 
-    /**
-     * Get requests that require business action.
-     *
-     * Includes:
-     * - PENDING_CONFIRMATION
-     * - PENDING_REVIEW
-     *
-     * GET
-     * /api/business/requests/pending?businessId=biz_001
-     */
     @GetMapping("/pending")
     public ResponseEntity<List<BusinessRequest>> getPendingRequests(
             @RequestParam String businessId) {
 
         return ResponseEntity.ok(
-                businessRequestStore.findPendingByBusinessId(
+                businessRequestRepository.findPendingByBusinessId(
                         businessId
                 )
         );
     }
 
-    /**
-     * Confirm a request.
-     *
-     * POST
-     * /api/business/requests/{requestId}/confirm
-     */
     @PostMapping("/{requestId}/confirm")
     public ResponseEntity<BusinessRequest> confirmRequest(
             @PathVariable String requestId) {
 
         BusinessRequest request =
-                businessRequestService.confirm(
-                        requestId
-                );
+                businessRequestService.confirm(requestId);
 
         messengerSendService.sendText(
                 request.customerId(),
@@ -79,20 +55,12 @@ public class BusinessRequestController {
         return ResponseEntity.ok(request);
     }
 
-    /**
-     * Reject a request.
-     *
-     * POST
-     * /api/business/requests/{requestId}/reject
-     */
     @PostMapping("/{requestId}/reject")
     public ResponseEntity<BusinessRequest> rejectRequest(
             @PathVariable String requestId) {
 
         BusinessRequest request =
-                businessRequestService.reject(
-                        requestId
-                );
+                businessRequestService.reject(requestId);
 
         messengerSendService.sendText(
                 request.customerId(),
@@ -104,8 +72,7 @@ public class BusinessRequestController {
         return ResponseEntity.ok(request);
     }
 
-    private String readableService(
-            String service) {
+    private String readableService(String service) {
 
         if (service == null || service.isBlank()) {
             return "business";
