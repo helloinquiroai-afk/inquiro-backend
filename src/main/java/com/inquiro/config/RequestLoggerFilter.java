@@ -4,27 +4,30 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-
 @Component
+@Slf4j
 public class RequestLoggerFilter extends OncePerRequestFilter {
-
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-
-        System.out.println("================================================");
-        System.out.println("METHOD : " + request.getMethod());
-        System.out.println("URI    : " + request.getRequestURI());
-        System.out.println("QUERY  : " + request.getQueryString());
-        System.out.println("================================================");
-
-        filterChain.doFilter(request, response);
+        String requestId = UUID.randomUUID().toString();
+        response.setHeader("X-Request-Id", requestId);
+        MDC.put("requestId", requestId);
+        long start = System.nanoTime();
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            // No query string, headers, body, or customer/session identifiers.
+            log.info("event=http_request request_id={} method={} status={} duration_ms={}",
+                    requestId, request.getMethod(), response.getStatus(), (System.nanoTime() - start) / 1000000);
+            MDC.remove("requestId");
+        }
     }
 }

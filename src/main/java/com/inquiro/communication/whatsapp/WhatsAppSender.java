@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClient;
 
 @Component
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class WhatsAppSender {
 
     private final WhatsAppProperties properties;
@@ -17,15 +18,8 @@ public class WhatsAppSender {
             String recipient,
             String message) {
 
-        System.out.println("Access token starts with: " +
-                properties.getAccessToken().substring(0, 10));
 
-        System.out.println("Phone Number ID: " +
-                properties.getPhoneNumberId());
-
-        System.out.println("Recipient: " + recipient);
-
-        /*WhatsAppTemplateRequest request =
+/*WhatsAppTemplateRequest request =
                 new WhatsAppTemplateRequest(
                         "whatsapp",
                         recipient,
@@ -62,11 +56,9 @@ public class WhatsAppSender {
                     .retrieve()
                     .body(String.class);
 
-            System.out.println("Meta Response: " + response);
+} catch (Exception e) {
 
-        } catch (Exception e) {
-
-            e.printStackTrace();
+            log.warn("event=whatsapp_send_failed error_type={}", e.getClass().getSimpleName());
         }
 
     }

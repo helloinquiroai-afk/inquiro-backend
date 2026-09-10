@@ -32,11 +32,7 @@ public class WhatsAppMessageProcessor {
 
         if (!messages.isArray() || messages.isEmpty()) {
 
-            System.out.println(
-                    "Ignoring non-message webhook"
-            );
-
-            return;
+return;
         }
 
         JsonNode message =
@@ -77,29 +73,8 @@ public class WhatsAppMessageProcessor {
                         .path("body")
                         .asText();
 
-        System.out.println(
-                "=================================="
-        );
 
-        System.out.println(
-                "WhatsApp Message"
-        );
 
-        System.out.println(
-                "=================================="
-        );
-
-        System.out.println(
-                "Sender     : " + sender
-        );
-
-        System.out.println(
-                "BusinessId : " + businessId
-        );
-
-        System.out.println(
-                "Message    : " + text
-        );
 
         /*
          * =====================================================
@@ -110,6 +85,7 @@ public class WhatsAppMessageProcessor {
         InquiryResponse response =
                 conversationService.process(
                         sender,
+                        com.inquiro.business.BusinessChannelType.WHATSAPP,
                         businessId,
                         text
                 );

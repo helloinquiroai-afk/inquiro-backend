@@ -1,6 +1,6 @@
 package com.inquiro.business;
 
-import com.inquiro.communication.messenger.MessengerSendService;
+import com.inquiro.communication.messenger.CustomerNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,7 +14,7 @@ public class BusinessRequestController {
 
     private final BusinessRequestRepository businessRequestRepository;
     private final BusinessRequestService businessRequestService;
-    private final MessengerSendService messengerSendService;
+    private final CustomerNotificationService notifications;
 
     @GetMapping
     public ResponseEntity<List<BusinessRequest>> getRequests(
@@ -45,12 +45,7 @@ public class BusinessRequestController {
         BusinessRequest request =
                 businessRequestService.confirm(requestId);
 
-        messengerSendService.sendText(
-                request.customerId(),
-                "Your "
-                        + readableService(request.service())
-                        + " request has been confirmed by the business."
-        );
+        notifications.sendConfirmation(request);
 
         return ResponseEntity.ok(request);
     }
@@ -62,12 +57,7 @@ public class BusinessRequestController {
         BusinessRequest request =
                 businessRequestService.reject(requestId);
 
-        messengerSendService.sendText(
-                request.customerId(),
-                "Unfortunately, your "
-                        + readableService(request.service())
-                        + " request could not be confirmed by the business."
-        );
+        notifications.sendRejection(request);
 
         return ResponseEntity.ok(request);
     }

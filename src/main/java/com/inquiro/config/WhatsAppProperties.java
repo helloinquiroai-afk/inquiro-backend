@@ -17,4 +17,6 @@ public class WhatsAppProperties {
 
     private String verifyToken;
 
+    private String appSecret = "";
+
 }

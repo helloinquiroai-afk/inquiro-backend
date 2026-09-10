@@ -117,11 +117,7 @@ public class InquiryOrchestrator {
         if ("BUSINESS_QUESTION".equalsIgnoreCase(
                 analysis.intent())) {
 
-            System.out.println(
-                    "BUSINESS QUESTION"
-            );
-
-            String answer =
+String answer =
                     businessQuestionService.answer(
                             message,
                             businessProfile
@@ -193,18 +189,9 @@ public class InquiryOrchestrator {
                         businessProfile
                 );
 
-        System.out.println(
-                "Early Business Boundary Status : "
-                        + boundary.status()
-        );
+if (boundary.message() != null) {
 
-        if (boundary.message() != null) {
-
-            System.out.println(
-                    "Early Business Boundary Message : "
-                            + boundary.message()
-            );
-        }
+}
 
         /*
          * =========================================================
@@ -304,11 +291,7 @@ public class InquiryOrchestrator {
          * Inquiro itself does not assume availability.
          */
 
-        System.out.println(
-                "ALL REQUIRED INFORMATION COLLECTED"
-        );
-
-        AvailabilityResult availability =
+AvailabilityResult availability =
                 availabilityService.checkAvailability(
                         analysis.intent(),
                         analysis.entities(),

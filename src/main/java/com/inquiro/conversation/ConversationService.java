@@ -56,29 +56,11 @@ public class ConversationService {
             String externalChannelId,
             String message) {
 
-        System.out.println(
-                "\n=================================================="
-        );
+        return process(sessionId, BusinessChannelType.MESSENGER, externalChannelId, message);
+    }
 
-        System.out.println(
-                "ConversationService.process()"
-        );
-
-        System.out.println(
-                "Session ID : " + sessionId
-        );
-
-        System.out.println(
-                "External Channel ID : " + externalChannelId
-        );
-
-        System.out.println(
-                "Message    : " + message
-        );
-
-        System.out.println(
-                "=================================================="
-        );
+    public InquiryResponse process(String sessionId, BusinessChannelType channelType,
+                                   String externalChannelId, String message) {
 
 
         /*
@@ -102,14 +84,14 @@ public class ConversationService {
         BusinessChannel channel =
                 businessChannelRepository
                         .findByTypeAndExternalId(
-                                BusinessChannelType.MESSENGER,
+                                channelType,
                                 externalChannelId
                         );
 
         if (channel == null) {
 
             throw new IllegalStateException(
-                    "No business channel configured for Messenger ID: "
+                    "No business channel configured for external ID: "
                             + externalChannelId
             );
         }
@@ -122,23 +104,8 @@ public class ConversationService {
             );
         }
 
-        System.out.println(
-                "Channel Type : "
-                        + channel.type()
-        );
 
-        System.out.println(
-                "Channel ID   : "
-                        + channel.channelId()
-        );
-
-        System.out.println(
-                "Business ID  : "
-                        + channel.businessId()
-        );
-
-
-        /*
+/*
          * =========================================================
          * 2. RESOLVE BUSINESS
          * =========================================================
@@ -162,15 +129,8 @@ public class ConversationService {
         BusinessProfile businessProfile =
                 businessAccount.profile();
 
-        System.out.println(
-                "Business    : "
-                        + businessAccount.businessName()
-        );
-
-        System.out.println(
-                "Business ID : "
-                        + businessAccount.businessId()
-        );
+        sessionId = new ConversationIdentity(businessAccount.businessId(), channelType,
+                externalChannelId, sessionId).sessionId();
 
 
         /*
@@ -191,17 +151,11 @@ public class ConversationService {
 
         if (session == null) {
 
-            System.out.println(
-                    "NEW CONVERSATION"
-            );
-
-            InquiryResponse response =
+InquiryResponse response =
                     inquiryOrchestrator.process(
                             message,
                             businessProfile
                     );
-
-            printResponse(response);
 
 
             /*
@@ -251,25 +205,6 @@ public class ConversationService {
          * =========================================================
          */
 
-        System.out.println(
-                "EXISTING CONVERSATION"
-        );
-
-        System.out.println(
-                "Stored Inquiry      : "
-                        + session.getInquiry()
-        );
-
-        System.out.println(
-                "Stored Fields       : "
-                        + session.getInquiry().fields()
-        );
-
-        System.out.println(
-                "Stored Missing      : "
-                        + session.getMissingFields()
-        );
-
 
         /*
          * =========================================================
@@ -286,16 +221,6 @@ public class ConversationService {
                         message
                 );
 
-        System.out.println(
-                "Conversation Intent : "
-                        + intent.intent()
-        );
-
-        System.out.println(
-                "Intent Confidence  : "
-                        + intent.confidence()
-        );
-
 
         /*
          * =========================================================
@@ -306,20 +231,6 @@ public class ConversationService {
         if ("NEW_REQUEST".equalsIgnoreCase(
                 intent.intent()
         )) {
-
-            System.out.println(
-                    "CUSTOMER STARTED A NEW REQUEST"
-            );
-
-
-            /*
-             * Remove the old conversation first.
-             */
-
-            conversationRepository.remove(
-                    sessionId
-            );
-
 
             /*
              * Analyze the message as a completely
@@ -332,8 +243,10 @@ public class ConversationService {
                             businessProfile
                     );
 
-            printResponse(response);
 
+            // Keep unfinished requests when answering questions or asking for clarification.
+            if (!isBusinessRequest(response.inquiry())) return response;
+            conversationRepository.remove(sessionId);
 
             /*
              * Save incomplete new request.
@@ -378,11 +291,7 @@ public class ConversationService {
          * =========================================================
          */
 
-        System.out.println(
-                "CUSTOMER CONTINUES EXISTING REQUEST"
-        );
-
-        FollowUpAnalysis replyAnalysis =
+FollowUpAnalysis replyAnalysis =
                 aiService.analyzeFollowUp(
                         session.getInquiry().service(),
                         session.getInquiry().fields(),
@@ -390,13 +299,7 @@ public class ConversationService {
                         message
                 );
 
-        System.out.println(
-                "AI Follow-up Entities : "
-                        + replyAnalysis.entities()
-        );
-
-
-        /*
+/*
          * =========================================================
          * 9. MERGE CUSTOMER INFORMATION
          * =========================================================
@@ -408,13 +311,7 @@ public class ConversationService {
                         replyAnalysis.entities()
                 );
 
-        System.out.println(
-                "Merged Fields : "
-                        + fields
-        );
-
-
-        /*
+/*
          * =========================================================
          * 10. BUILD UPDATED REQUEST ANALYSIS
          * =========================================================
@@ -454,13 +351,7 @@ public class ConversationService {
                         businessProfile
                 );
 
-        System.out.println(
-                "Missing After Merge : "
-                        + missing
-        );
-
-
-        /*
+/*
          * =========================================================
          * 13. STILL MISSING INFORMATION
          * =========================================================
@@ -476,11 +367,7 @@ public class ConversationService {
                             Instant.now()
                     );
 
-            System.out.println(
-                    "Saving Updated Conversation"
-            );
-
-            conversationRepository.save(
+conversationRepository.save(
                     updatedSession
             );
 
@@ -491,11 +378,7 @@ public class ConversationService {
                             updatedInquiry.service()
                     );
 
-            System.out.println(
-                    "Reply : " + reply
-            );
-
-            return new InquiryResponse(
+return new InquiryResponse(
                     updatedInquiry,
                     missing,
                     InquiryStatus.NEEDS_INFORMATION,
@@ -510,11 +393,7 @@ public class ConversationService {
          * =========================================================
          */
 
-        System.out.println(
-                "Conversation Complete"
-        );
-
-        return processCompletedRequest(
+return processCompletedRequest(
                 businessAccount,
                 sessionId,
                 updatedInquiry
@@ -579,19 +458,6 @@ public class ConversationService {
                         businessAccount.profile()
                 );
 
-        System.out.println(
-                "Business Boundary Status : "
-                        + boundary.status()
-        );
-
-        if (boundary.message() != null) {
-
-            System.out.println(
-                    "Business Boundary Message : "
-                            + boundary.message()
-            );
-        }
-
 
         /*
          * =========================================================
@@ -610,13 +476,6 @@ public class ConversationService {
                             inquiry.fields()
                     );
 
-            System.out.println(
-                    "Human Review Request Created:"
-            );
-
-            System.out.println(
-                    reviewRequest
-            );
 
             conversationRepository.remove(
                     customerId
@@ -669,16 +528,6 @@ public class ConversationService {
                         businessAccount.profile()
                 );
 
-        System.out.println(
-                "Availability Status : "
-                        + availability.status()
-        );
-
-        System.out.println(
-                "Availability Message : "
-                        + availability.message()
-        );
-
 
         /*
          * =========================================================
@@ -694,14 +543,6 @@ public class ConversationService {
                         inquiry.fields(),
                         availability.status()
                 );
-
-        System.out.println(
-                "Business Request Created:"
-        );
-
-        System.out.println(
-                businessRequest
-        );
 
 
         /*
@@ -738,11 +579,7 @@ public class ConversationService {
             String sessionId,
             InquiryResponse response) {
 
-        System.out.println(
-                "Saving conversation..."
-        );
-
-        conversationRepository.save(
+conversationRepository.save(
                 new ConversationSession(
                         sessionId,
                         response.inquiry(),
@@ -893,36 +730,5 @@ public class ConversationService {
                 "$1 $2"
         ).toLowerCase()
                 + "?";
-    }
-
-
-    /*
-     * =============================================================
-     * DEBUG RESPONSE
-     * =============================================================
-     */
-
-    private void printResponse(
-            InquiryResponse response) {
-
-        System.out.println(
-                "AI Inquiry      : "
-                        + response.inquiry()
-        );
-
-        System.out.println(
-                "Missing Fields  : "
-                        + response.missingFields()
-        );
-
-        System.out.println(
-                "Status          : "
-                        + response.status()
-        );
-
-        System.out.println(
-                "Reply           : "
-                        + response.reply()
-        );
     }
 }

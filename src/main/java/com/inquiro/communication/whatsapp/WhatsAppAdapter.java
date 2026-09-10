@@ -20,6 +20,7 @@ public class WhatsAppAdapter implements ChannelAdapter {
         InquiryResponse response =
                 conversationService.process(
                         message.sessionId(),
+                        com.inquiro.business.BusinessChannelType.WHATSAPP,
                         message.businessId(),
                         message.message()
                 );
