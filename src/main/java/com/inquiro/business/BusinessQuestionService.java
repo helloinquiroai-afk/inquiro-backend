@@ -14,9 +14,11 @@ public class BusinessQuestionService {
             String customerQuestion,
             BusinessProfile businessProfile) {
 
-        return aiService.answerBusinessQuestion(
-                customerQuestion,
-                businessProfile
-        );
+        try {
+            String answer = aiService.answerBusinessQuestion(customerQuestion, businessProfile);
+            return answer == null || answer.isBlank() ? com.inquiro.ai.BusinessQuestionPrompt.MISSING_INFORMATION : answer;
+        } catch (RuntimeException exception) {
+            return "I'm sorry, I couldn't check that information right now. Please contact the business or try again shortly.";
+        }
     }
 }

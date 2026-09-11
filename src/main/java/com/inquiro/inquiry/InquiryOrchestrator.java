@@ -63,6 +63,21 @@ public class InquiryOrchestrator {
                         businessProfile
                 );
 
+        InquiryResponse response = processAnalysis(message, businessProfile, analysis);
+        if (!"BUSINESS_QUESTION".equalsIgnoreCase(analysis.intent())) {
+            response = response.withKnowledgeReply(answerKnowledgeQuestions(analysis.knowledgeQuestions(), businessProfile));
+        }
+        return response;
+    }
+
+    public String answerKnowledgeQuestions(List<String> questions, BusinessProfile profile) {
+        if (questions == null || questions.isEmpty()) return "";
+        return questions.stream().map(question -> businessQuestionService.answer(question, profile))
+                .distinct().collect(java.util.stream.Collectors.joining(" "));
+    }
+
+    private InquiryResponse processAnalysis(String message, BusinessProfile businessProfile, RequestAnalysis analysis) {
+
         /*
          * =========================================================
          * 3. GREETING

@@ -2,12 +2,13 @@
 
 Inquiro, by Vorlent Labs, is an AI receptionist for small businesses: answer customer questions, collect booking details, and route requests for confirmation. The initial target industries are hotels, restaurants, and clinics.
 
-This repository contains the Spring Boot backend. The current implementation milestone is a secure Messenger round trip through the existing conversation engine. It is **not yet the complete commercial SaaS MVP**. See [IMPLEMENTATION_CHECKLIST.md](IMPLEMENTATION_CHECKLIST.md) for the evidence-based inventory and remaining work.
+This repository contains the Spring Boot backend, with the Messenger integration and Business Knowledge MVP implemented locally. It is **not yet the complete commercial SaaS MVP**. See [IMPLEMENTATION_CHECKLIST.md](IMPLEMENTATION_CHECKLIST.md) for the evidence-based inventory and remaining work.
 
 ## What works here
 
 - AI intent/entity extraction, contextual follow-ups, explicit corrections, configured missing-field questions, and business knowledge answers.
 - Persistent business profiles, channel mappings, conversation state, and business requests awaiting confirmation/review.
+- Persistent knowledge management, transient AI FAQ suggestions, explicit operator approval/rejection, and mixed knowledge/workflow messages.
 - Messenger verification, raw-body signature checks, all text events in each batch, durable receipt before acknowledgment, duplicate protection, saved replies, retryable delivery, and optional typing/seen indicators.
 - Scoped conversation identity: business + channel + external Page/site + customer. Website chat and Messenger share the same conversation service.
 - Website message/reset endpoint compatibility. No frontend source, landing page, localStorage code, or browser daily-limit code is present in this checkout.
@@ -127,7 +128,7 @@ Content-Type: application/json
 {"sessionId":"browser-generated-session-id","message":"I need a room in Paris"}
 ```
 
-Responses retain `inquiry`, `missingFields`, `status`, and `reply`. `DELETE /api/conversations/{sessionId}` resets only the configured website conversation. `POST /api/chat` remains available as the existing stateless/default-profile endpoint.
+Responses retain `inquiry`, `missingFields`, `status`, and `reply`. `DELETE /api/conversations/{sessionId}` resets only the configured website conversation. `POST /api/chat` remains available as a stateless endpoint and now reads the latest persisted default-business profile when present.
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -139,6 +140,10 @@ Responses retain `inquiry`, `missingFields`, `status`, and `reply`. `DELETE /api
 | `POST /api/chat` | Existing stateless chat |
 | `POST /api/business/accounts` | Create business account; operator key required |
 | `GET/PUT /api/business/accounts/{id}/profile` | Read/update profile |
+| `GET/PUT /api/business/accounts/{id}/knowledge` | Read/replace the complete knowledge object |
+| `POST /api/business/accounts/{id}/knowledge/faq-suggestions` | Generate up to 10 transient drafts from configured knowledge |
+| `POST /api/business/accounts/{id}/knowledge/faq-suggestions/review` | Explicitly approve/edit or reject a FAQ draft |
+| `POST /api/knowledge/ingest` | Merge operator-supplied information into an existing persisted profile |
 | `GET/POST /api/business/accounts/{id}/channels` | Read/add channel mapping |
 | `GET /api/business/requests?businessId=...` | Requests for a business |
 | `GET /api/business/requests/pending?businessId=...` | Pending requests |
@@ -174,4 +179,61 @@ Place Cloudflare or another HTTPS ingress before the backend, keep the origin pr
 
 Before production SaaS rollout: add PostgreSQL driver/schema migrations (legacy CLOB mappings need conversion), business-user authentication/authorization, tenant-scoped management, encrypted per-Page credentials and Meta authorization, database inventory and confirmed bookings, backend rate/usage limits, retention/monitoring, backup/restore verification, and a dashboard/frontend. Pin the current SNAPSHOT parent to a tested stable release. PostgreSQL compatibility, horizontal scaling, billing and deployment to a public host are not claimed by this milestone.
 
-Persistent FAQ approval and owner onboarding are the next implementation milestones after Messenger acceptance. The current knowledge-ingestion API still has the legacy in-memory/conditional-persistence limitation; use the persistent profile endpoint for this Messenger demonstration.
+Owner onboarding and the other production capabilities remain later milestones. Real Messenger acceptance still requires the external configuration described above.
+
+## Business Knowledge MVP
+
+### Persistence and management
+
+There is one source of truth: `business_account.profile_json`. Jackson serializes the existing `BusinessProfile`, including its complete `BusinessKnowledge` and boundaries, into the existing JPA CLOB column. No new table or persistence technology is introduced. `BusinessKnowledgeStore` now delegates to account persistence; it no longer has an independent in-memory map. Conversation processing loads the account profile for each message. The default-profile provider also checks persistence before using its legacy seed fallback.
+
+The knowledge endpoints use the existing `X-Inquiro-Management-Key` protection. Unknown businesses return 404 and are never created by a knowledge write. Invalid IDs, malformed/unknown JSON fields, invalid entries and invalid review decisions return 400. Missing/incorrect operator credentials return 401. AI suggestion failures return a sanitized 502 response. Successful reads, updates, suggestions and reviews return 200.
+
+`PUT /api/business/accounts/{businessId}/knowledge` is an **explicit complete replacement**, not a patch. Omitted/null collections become empty immutable collections; omitted/null boundaries become safe empty defaults based on supplied services. The business name/type, profile description and configured workflow definitions remain intact. To change one section, GET the current object, edit that section, then PUT the whole object back. The same process views, adds, edits, or removes entries in `faqs`, which remains a list of strings.
+
+```powershell
+$headers = @{ 'X-Inquiro-Management-Key' = $env:INQUIRO_MANAGEMENT_API_KEY }
+$url = 'http://localhost:8080/api/business/accounts/biz_001/knowledge'
+$knowledge = Invoke-RestMethod -Uri $url -Headers $headers
+$knowledge.faqs = @('Q: Is guest parking free?' + "`n" + 'A: Yes, guest parking is free.')
+Invoke-RestMethod -Method Put -Uri $url -Headers $headers -ContentType 'application/json' -Body ($knowledge | ConvertTo-Json -Depth 12)
+```
+
+The knowledge endpoint bounds the serialized object to 64,000 characters, collections/maps to 100 entries, keys to 200 characters and individual text values to 5,000 characters. Blank/null collection entries and map values are rejected. Optional scalar description/instructions can be empty. Whole-profile PUT retains its existing full-profile semantics; the knowledge-specific endpoint is the validated API for this milestone.
+
+Knowledge replacement, FAQ approval, ingestion and existing profile updates lock the same account row during writes. This prevents concurrent additive FAQ approvals from losing one another. Full-object replacements still intentionally replace the submitted state; callers should refetch before editing to avoid submitting stale content.
+
+### Ingestion compatibility
+
+`POST /api/knowledge/ingest` retains the existing document format. It now persists for an existing business even without `facebookPageId`; that legacy field is accepted but channel linking remains separate. A missing business ID uses `DEFAULT_BUSINESS_ID` for compatibility; blank/invalid IDs are rejected. Empty content is rejected.
+
+Ingestion merges supplied nonempty maps/scalars and appends distinct list values. It preserves existing values when extraction is empty, existing custom instructions, and existing workflow definitions for matching service codes. Extractor fallback names/types do not replace the real business identity. Use complete knowledge/profile PUT to remove old values or deliberately replace conflicting policies/definitions. Ingestion is operator-supplied approved content; it does not publish AI-generated FAQ suggestions.
+
+### FAQ suggestions and explicit review
+
+1. Configure business facts, hours, policies, services and other knowledge.
+2. POST to `/knowledge/faq-suggestions` without a body. The response is a JSON array of `{ "question": "...", "answer": "..." }` drafts. No approved knowledge is modified.
+3. Inspect and optionally edit the question/answer.
+4. POST a review to `/knowledge/faq-suggestions/review`:
+
+```json
+{
+  "decision": "APPROVE",
+  "suggestion": {
+    "question": "Is guest parking free?",
+    "answer": "Yes, guest parking is free."
+  }
+}
+```
+
+Approval appends `Q: question\nA: answer` to the persisted FAQ list. Repeating the identical approval does not add a duplicate. `REJECT` returns the current knowledge unchanged. The review response contains `decision` and `knowledge`. Questions are limited to 500 characters and answers to 4,000 characters; both must be nonblank. Existing FAQ string formats remain readable.
+
+Drafts and rejection decisions are transient: there is no pending-review table, review history or suggestion ID. The client retains the draft until review and can discard it on rejection. The operator's explicit approval is authoritative, including edits; the server does not claim that manually supplied edits were generated or independently verified by AI. Removing/editing approved FAQs uses the complete knowledge PUT.
+
+### Knowledge safety and mixed messages
+
+`BusinessQuestionPrompt` remains the central question prompt. It includes the approved facts, FAQs, policies, hours, contact information, rules, capabilities and boundaries. The AI selects source IDs; the application renders the selected approved answer text instead of publishing arbitrary generated prose. Unknown source IDs, malformed selections and insufficient information use a fixed “business has not provided that information” response. Explicitly unsupported capabilities have negative responses, and capability responses state that availability needs business confirmation. Internal owner guidance is not an answerable source. FAQ suggestion answers are also drawn from these sources, while questions are generated as drafts.
+
+This constrains answers to approved text; it is not proof that the model will always select the most relevant source. Owners should write clear, self-contained facts and resolve contradictions. Answering currently favors approved wording over unrestricted paraphrasing or translation. Up to three knowledge questions/source answers are handled per message; large/multi-part requests may need a follow-up. No inventory, automatic booking confirmation, scraping, embeddings or vector database is added.
+
+Request analysis now includes optional `knowledgeQuestions` alongside the workflow intent and entities. Conversation intent analysis distinguishes knowledge-only interruptions from workflow follow-ups containing questions. A knowledge-only question leaves the unfinished inquiry and missing fields intact. A mixed message extracts/merges the workflow details and combines the knowledge answer with the next question or pending-request receipt. If knowledge answering fails, a friendly fallback is combined with the workflow response so the workflow can continue. The public `InquiryResponse` JSON shape is unchanged; Messenger transport and delivery code are unchanged.

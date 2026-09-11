@@ -6,6 +6,10 @@ public interface BusinessAccountRepository {
             String businessId
     );
 
+    default BusinessAccount findByBusinessIdForUpdate(String businessId) {
+        return findByBusinessId(businessId);
+    }
+
     void save(
             BusinessAccount account
     );

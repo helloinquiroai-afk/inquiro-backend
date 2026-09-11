@@ -35,6 +35,16 @@ public record BusinessKnowledge(
 
 ) {
 
+    public static BusinessKnowledge empty() {
+        return new BusinessKnowledge("", List.of(), List.of(), Map.of(), List.of(), List.of(), "");
+    }
+
+    public BusinessKnowledge withFaqs(List<String> replacement) {
+        return new BusinessKnowledge(businessDescription, services, products, facts, replacement, policies,
+                instructions, operatingHours, locations, contactInformation, bookingRules, capabilities,
+                restrictions, boundaries);
+    }
+
     public BusinessKnowledge(
             String businessDescription,
             List<String> services,

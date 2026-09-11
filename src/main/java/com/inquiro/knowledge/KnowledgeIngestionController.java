@@ -1,58 +1,23 @@
 package com.inquiro.knowledge;
 
-import com.inquiro.business.BusinessAccount;
-import com.inquiro.business.BusinessAccountRepository;
 import com.inquiro.business.BusinessProfile;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/knowledge")
 @RequiredArgsConstructor
 public class KnowledgeIngestionController {
-
     private final KnowledgeIngestionService ingestionService;
-    private final BusinessAccountRepository businessAccountRepository;
+    @Value("${inquiro.default-business-id:biz_001}")
+    private String defaultBusinessId;
 
     @PostMapping("/ingest")
-    public BusinessProfile ingest(
-            @RequestBody KnowledgeIngestionRequest request) {
-
-        String businessId =
-                request.businessId() == null ||
-                        request.businessId().isBlank()
-                        ? "biz_001"
-                        : request.businessId();
-
-        BusinessProfile profile =
-                ingestionService.ingest(
-                        businessId,
-                        new KnowledgeDocument(
-                                request.source(),
-                                request.content(),
-                                request.metadata() == null
-                                        ? Map.of()
-                                        : request.metadata()
-                        )
-                );
-
-        if (request.facebookPageId() != null &&
-                !request.facebookPageId().isBlank()) {
-
-            businessAccountRepository.save(
-                    new BusinessAccount(
-                            businessId,
-                            profile.businessName(),
-                            profile
-                    )
-            );
-        }
-
-        return profile;
+    public BusinessProfile ingest(@RequestBody KnowledgeIngestionRequest request) {
+        String businessId = request.businessId() == null ? defaultBusinessId : request.businessId();
+        // facebookPageId remains accepted for wire compatibility; channel linking is a separate API.
+        return ingestionService.ingest(businessId,
+                new KnowledgeDocument(request.source(), request.content(), request.metadata()));
     }
 }

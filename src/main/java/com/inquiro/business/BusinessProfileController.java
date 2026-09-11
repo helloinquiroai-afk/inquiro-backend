@@ -43,6 +43,7 @@ public class BusinessProfileController {
      */
 
     @PutMapping("/{businessId}/profile")
+    @org.springframework.transaction.annotation.Transactional
     public BusinessProfile updateBusinessProfile(
             @PathVariable String businessId,
             @RequestBody BusinessProfile profile) {
@@ -55,7 +56,7 @@ public class BusinessProfileController {
         }
 
         BusinessAccount account =
-                businessAccountRepository.findByBusinessId(
+                businessAccountRepository.findByBusinessIdForUpdate(
                         businessId
                 );
 

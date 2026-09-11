@@ -8,6 +8,8 @@ import java.util.Map;
 
 public interface AiService {
 
+    List<com.inquiro.knowledge.FaqSuggestion> suggestFaqs(BusinessProfile businessProfile);
+
     InquiryResult analyze(String message);
 
     RequestAnalysis analyzeRequest(String message);

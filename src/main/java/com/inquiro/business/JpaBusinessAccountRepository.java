@@ -16,6 +16,11 @@ public class JpaBusinessAccountRepository
 
     private final ObjectMapper objectMapper;
 
+    @Override
+    public BusinessAccount findByBusinessIdForUpdate(String businessId) {
+        return jpaRepository.findForUpdate(businessId).map(this::toDomain).orElse(null);
+    }
+
 
     @Override
     public BusinessAccount findByBusinessId(

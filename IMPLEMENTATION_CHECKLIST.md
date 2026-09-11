@@ -29,13 +29,26 @@ Repository inspection, 2026-09-11. This checklist follows repository evidence, n
 - [x] Document HTTPS, Meta setup, environment variables and operational limits.
 - [ ] Real Page message/reply test (external Page credentials, public HTTPS and Meta subscription required).
 
+## Second milestone: Business Knowledge MVP
+
+- [x] Reuse `business_account.profile_json` as the single persistent knowledge source.
+- [x] Replace the in-memory ingestion map with account-backed persistence and non-destructive merging.
+- [x] Protected GET/PUT knowledge APIs with existence checks, validation and full-replacement semantics.
+- [x] Keep FAQ strings; support viewing/editing/removal through knowledge replacement.
+- [x] Generate transient FAQ drafts and explicitly approve edited drafts or reject without publishing.
+- [x] Constrain question answers and draft answers to approved source text; fail closed on invalid references.
+- [x] Read current persisted profiles for conversations and the default stateless endpoint.
+- [x] Preserve unfinished workflows during knowledge questions and handle combined workflow/question messages.
+- [x] Test concurrent approval, tenant lookup isolation, actual application restart, source boundaries and API errors.
+- [x] Execute the complete test suite and Maven package; preserve Messenger regression coverage.
+- [x] Document APIs, persistence, review semantics, validation and limitations.
+
 ## Subsequent milestones (not yet implemented)
 
-1. Persistent owner-managed knowledge and FAQs; AI suggestions with approval; mixed questions without losing workflow state.
-2. Business onboarding and authenticated dashboard; self-service Page authorization and encrypted credentials.
-3. Configurable inventory, normalized dates, options, confirmation, modification/cancellation for all five initial workflows.
-4. Complete tenant authorization across every management endpoint and data model; customer/message history.
-5. PostgreSQL migrations, authentication/authorization, rate/usage limits, monitoring and deployment/backup validation.
-6. Subscription/billing structure, public demo and first-customer acceptance tests.
+1. Business onboarding and authenticated dashboard; self-service Page authorization and encrypted credentials.
+2. Configurable inventory, normalized dates, options, confirmation, modification/cancellation for all five initial workflows.
+3. Complete tenant authorization across every management endpoint and data model; customer/message history.
+4. PostgreSQL migrations, authentication/authorization, rate/usage limits, monitoring and deployment/backup validation.
+5. Subscription/billing structure, public demo and first-customer acceptance tests.
 
 Do not treat a passing build or mocked Messenger test as a completed commercial MVP.

@@ -97,6 +97,11 @@ public final class RequestAnalysisPrompt {
                 
                 If the customer asks a question about the business, its services, products, rules,
                 prices, locations, availability, policies, or contact details, return BUSINESS_QUESTION.
+                If the SAME message also requests a configured workflow, return that workflow intent,
+                extract its entities, and include the business question(s) in knowledgeQuestions.
+                Never discard the workflow or put a question into a workflow field.
+                knowledgeQuestions is an array of up to 3 self-contained questions explicitly asked,
+                each no longer than 2000 characters; otherwise return an empty array.
                 
                 GREETING
                 
@@ -105,6 +110,10 @@ public final class RequestAnalysisPrompt {
                 ENTITY EXTRACTION
                 
                 Extract only explicitly provided useful entities.
+                Extract EVERY explicitly supplied workflow detail, even when the same message asks a question.
+                Relative date phrases such as next Friday are valid field values: preserve them exactly.
+                Do not omit a provided date because its calendar date has not been resolved.
+                Use the configured date field (for example checkInDate for a room request).
                 Do not invent fields or values.
                 Return explicit counts and durations as JSON numbers, not phrases or numeric strings.
                 For example, two adults means guestCount: 2. Do not infer counts from family or group.
@@ -119,7 +128,8 @@ public final class RequestAnalysisPrompt {
                 {
                   "intent": "",
                   "confidence": 0.0,
-                  "entities": {}
+                  "entities": {},
+                  "knowledgeQuestions": []
                 }
                 """
                 .formatted(

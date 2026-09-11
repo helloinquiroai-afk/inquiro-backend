@@ -17,4 +17,12 @@ public record BusinessProfile(
         BusinessKnowledge knowledge
 
 ) {
+    public BusinessProfile {
+        services = services == null ? List.of() : List.copyOf(services);
+        knowledge = knowledge == null ? BusinessKnowledge.empty() : knowledge;
+    }
+
+    public BusinessProfile withKnowledge(BusinessKnowledge replacement) {
+        return new BusinessProfile(businessName, businessType, description, services, replacement);
+    }
 }

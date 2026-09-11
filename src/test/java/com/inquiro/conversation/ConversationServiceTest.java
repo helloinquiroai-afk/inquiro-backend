@@ -162,4 +162,71 @@ class ConversationServiceTest {
         assertNull(ConversationIdentity.fromSessionId("old-legacy-session"));
         assertNull(ConversationIdentity.fromSessionId("v1.bad"));
     }
+
+    @Test void initialMixedRequestAnswersKnowledgeAndRetainsBookingEntities() {
+        String message = "I need a room in Paris next Friday for 2 people and do you have parking?";
+        when(ai.analyzeRequest(message, profile)).thenReturn(new RequestAnalysis("ROOM_BOOKING", .99,
+                Map.of("location", "Paris", "checkInDate", "next Friday", "guestCount", 2), List.of("Do you have parking?")));
+        when(ai.answerBusinessQuestion("Do you have parking?", profile)).thenReturn("Parking is free.");
+        var reply = say(message);
+        assertTrue(reply.reply().startsWith("Parking is free."));
+        assertEquals(List.of("durationNights"), reply.missingFields());
+        assertEquals(2, reply.inquiry().fields().get("guestCount"));
+        assertEquals(1, sessions.size());
+        followUp("Three nights", Map.of("durationNights", 3));
+        say("Three nights");
+        verify(requests).create(anyString(), anyString(), eq("ROOM_BOOKING"),
+                argThat(fields -> fields.get("durationNights").equals(3) && fields.get("guestCount").equals(2)), any());
+    }
+
+    @Test void explicitKnowledgeInterruptionRetainsMissingFieldsAndResumes() {
+        start();
+        when(ai.analyzeConversationIntent(eq(profile), anyString(), anyMap(), anyList(), eq("Parking?")))
+                .thenReturn(new ConversationIntentAnalysis("BUSINESS_QUESTION", .99, List.of("Is parking free?")));
+        when(ai.answerBusinessQuestion("Is parking free?", profile)).thenReturn("Parking is free.");
+        var reply = say("Parking?");
+        assertEquals("Parking is free.", reply.reply());
+        assertEquals(List.of("checkInDate", "guestCount", "durationNights"), reply.missingFields());
+        assertEquals("Paris", reply.inquiry().fields().get("location"));
+        followUp("Next Friday for two adults", Map.of("checkInDate", "next Friday", "guestCount", 2));
+        assertEquals(List.of("durationNights"), say("Next Friday for two adults").missingFields());
+    }
+
+    @Test void completingMixedFollowUpKeepsKnowledgeAnswerAndCreatesOnlyOneRequest() {
+        start();
+        String message = "Next Friday for two adults for three nights. Is parking free?";
+        followUp(message, Map.of("checkInDate", "next Friday", "guestCount", 2, "durationNights", 3));
+        when(ai.analyzeConversationIntent(eq(profile), anyString(), anyMap(), anyList(), eq(message)))
+                .thenReturn(new ConversationIntentAnalysis("FOLLOW_UP", .99, List.of("Is parking free?")));
+        when(ai.answerBusinessQuestion("Is parking free?", profile)).thenReturn("Parking is free.");
+        var reply = say(message);
+        assertTrue(reply.reply().startsWith("Parking is free."));
+        assertEquals(InquiryStatus.INFORMATION_COLLECTED, reply.status());
+        assertTrue(sessions.isEmpty());
+        verify(requests, times(1)).create(anyString(), anyString(), eq("ROOM_BOOKING"), anyMap(), any());
+    }
+
+    @Test void fullySpecifiedInitialMixedRequestKeepsBothAnswerAndReceipt() {
+        String message = "Room in Paris next Friday for two guests for three nights and is parking free?";
+        when(ai.analyzeRequest(message, profile)).thenReturn(new RequestAnalysis("ROOM_BOOKING", .99,
+                Map.of("location", "Paris", "checkInDate", "next Friday", "guestCount", 2, "durationNights", 3),
+                List.of("Is parking free?")));
+        when(ai.answerBusinessQuestion("Is parking free?", profile)).thenReturn("Parking is free.");
+        var reply = say(message);
+        assertTrue(reply.reply().startsWith("Parking is free."));
+        assertTrue(reply.reply().contains("confirm availability"));
+        verify(requests, times(1)).create(anyString(), anyString(), eq("ROOM_BOOKING"), anyMap(), any());
+    }
+
+    @Test void failedKnowledgeAnswerDoesNotDiscardMixedWorkflow() {
+        String message = "A room in Paris and parking?";
+        when(ai.analyzeRequest(message, profile)).thenReturn(new RequestAnalysis("ROOM_BOOKING", .99,
+                Map.of("location", "Paris"), List.of("Is parking free?")));
+        when(ai.answerBusinessQuestion("Is parking free?", profile)).thenThrow(new IllegalStateException("upstream secret"));
+        var reply = say(message);
+        assertFalse(reply.reply().contains("secret"));
+        assertTrue(reply.reply().contains("try again"));
+        assertEquals(1, sessions.size());
+        assertEquals("Paris", reply.inquiry().fields().get("location"));
+    }
 }

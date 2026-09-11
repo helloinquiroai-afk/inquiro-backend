@@ -68,13 +68,21 @@ public final class ConversationIntentPrompt {
                 Customer message:
                 "%s"
 
-                Classify the customer message as FOLLOW_UP or NEW_REQUEST.
+                Classify the customer message as FOLLOW_UP, NEW_REQUEST, or BUSINESS_QUESTION.
 
                 FOLLOW_UP means the customer is providing information related to the current service
                 or answering one of the missing fields.
 
                 NEW_REQUEST means the customer is clearly starting a different service request
-                or asking for a different business capability.
+                and not merely asking a question about the business.
+
+                BUSINESS_QUESTION means a knowledge-only interruption, such as asking about parking,
+                hours, prices or policies, without supplying workflow details.
+                A message that provides details/corrections for the current workflow AND asks a business
+                question is FOLLOW_UP. Include its question(s) in knowledgeQuestions and do not discard
+                the supplied details. A different workflow plus a question is NEW_REQUEST.
+                knowledgeQuestions must contain only explicitly asked, self-contained questions,
+                up to 3 questions of at most 2000 characters each; otherwise use an empty array.
 
                 Short answers such as a date, time, number, name, location, or contact detail are
                 usually FOLLOW_UP when they plausibly fill a missing field.
@@ -83,14 +91,16 @@ public final class ConversationIntentPrompt {
 
                 {
                   "intent": "FOLLOW_UP",
-                  "confidence": 0.0
+                  "confidence": 0.0,
+                  "knowledgeQuestions": []
                 }
 
                 or:
 
                 {
                   "intent": "NEW_REQUEST",
-                  "confidence": 0.0
+                  "confidence": 0.0,
+                  "knowledgeQuestions": []
                 }
                 """
                 .formatted(

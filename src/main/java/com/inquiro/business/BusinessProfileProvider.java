@@ -9,6 +9,16 @@ public class BusinessProfileProvider {
 
     private final BusinessKnowledgeExtractor extractor;
     private BusinessProfile defaultProfile;
+    private BusinessAccountRepository accounts;
+    private String defaultBusinessId;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public BusinessProfileProvider(BusinessKnowledgeExtractor extractor, BusinessAccountRepository accounts,
+            @org.springframework.beans.factory.annotation.Value("${inquiro.default-business-id:biz_001}") String businessId) {
+        this.extractor = extractor;
+        this.accounts = accounts;
+        this.defaultBusinessId = businessId;
+    }
 
     public BusinessProfileProvider(
             BusinessKnowledgeExtractor extractor) {
@@ -21,6 +31,11 @@ public class BusinessProfileProvider {
     }
 
     public BusinessProfile get() {
+
+        if (accounts != null) {
+            var account = accounts.findByBusinessId(defaultBusinessId);
+            if (account != null) return account.profile();
+        }
 
         if (defaultProfile == null) {
             defaultProfile =

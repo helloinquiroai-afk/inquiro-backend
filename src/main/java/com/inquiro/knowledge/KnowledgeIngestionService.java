@@ -15,6 +15,11 @@ public class KnowledgeIngestionService {
             String businessId,
             KnowledgeDocument document) {
 
+        BusinessKnowledgeService.validateBusinessId(businessId);
+        if (document == null || document.content().isBlank() || document.content().length() > 64000) {
+            throw new IllegalArgumentException("Nonempty knowledge content is required");
+        }
+
         BusinessProfile profile =
                 extractor.extract(document);
 
@@ -23,6 +28,6 @@ public class KnowledgeIngestionService {
                 profile
         );
 
-        return profile;
+        return store.findByBusinessId(businessId);
     }
 }

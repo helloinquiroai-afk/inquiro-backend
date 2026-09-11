@@ -192,7 +192,7 @@ InquiryResponse response =
                         businessAccount,
                         sessionId,
                         response.inquiry()
-                );
+                ).withKnowledgeReply(response.knowledgeReply());
             }
 
             return response;
@@ -227,6 +227,13 @@ InquiryResponse response =
          * 7. NEW REQUEST
          * =========================================================
          */
+
+        if ("BUSINESS_QUESTION".equalsIgnoreCase(intent.intent())) {
+            String answer = inquiryOrchestrator.answerKnowledgeQuestions(
+                    intent.knowledgeQuestions().isEmpty() ? List.of(message) : intent.knowledgeQuestions(), businessProfile);
+            return new InquiryResponse(session.getInquiry(), session.getMissingFields(),
+                    InquiryStatus.NEEDS_INFORMATION, answer);
+        }
 
         if ("NEW_REQUEST".equalsIgnoreCase(
                 intent.intent()
@@ -278,7 +285,7 @@ InquiryResponse response =
                         businessAccount,
                         sessionId,
                         response.inquiry()
-                );
+                ).withKnowledgeReply(response.knowledgeReply());
             }
 
             return response;
@@ -290,6 +297,8 @@ InquiryResponse response =
          * 8. FOLLOW-UP TO EXISTING REQUEST
          * =========================================================
          */
+
+        String knowledgeReply = inquiryOrchestrator.answerKnowledgeQuestions(intent.knowledgeQuestions(), businessProfile);
 
 FollowUpAnalysis replyAnalysis =
                 aiService.analyzeFollowUp(
@@ -383,7 +392,7 @@ return new InquiryResponse(
                     missing,
                     InquiryStatus.NEEDS_INFORMATION,
                     reply
-            );
+            ).withKnowledgeReply(knowledgeReply);
         }
 
 
@@ -397,7 +406,7 @@ return processCompletedRequest(
                 businessAccount,
                 sessionId,
                 updatedInquiry
-        );
+        ).withKnowledgeReply(knowledgeReply);
     }
 
 

@@ -86,8 +86,11 @@ class OpenAiServiceTest {
     }
 
     @Test void returnsBusinessKnowledgeAnswer() throws Exception {
-        response("Yes, parking is free for hotel guests.");
+        var profile = new BusinessProfileProvider().get();
+        profile = profile.withKnowledge(new com.inquiro.business.BusinessKnowledge("", List.of(), List.of(),
+                Map.of("parking", "Yes, parking is free for hotel guests."), List.of(), List.of(), ""));
+        response("{\"sourceIds\":[\"fact:parking\"],\"missingInformation\":false}");
         assertEquals("Yes, parking is free for hotel guests.",
-                service.answerBusinessQuestion("Is parking free?", new BusinessProfileProvider().get()));
+                service.answerBusinessQuestion("Is parking free?", profile));
     }
 }
