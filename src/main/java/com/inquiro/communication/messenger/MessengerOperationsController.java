@@ -2,6 +2,7 @@ package com.inquiro.communication.messenger;
 
 import java.time.Instant;
 import java.util.List;
+import com.inquiro.auth.TenantAuthorizationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,10 +15,12 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class MessengerOperationsController {
     private final MessengerInboxRepository inbox;
+    private final TenantAuthorizationService tenantAuthorization;
 
     @GetMapping
     public List<EventStatus> list(@PathVariable String businessId,
             @RequestParam(defaultValue = "FAILED") MessengerInboxEvent.Status status) {
+        tenantAuthorization.requireBusinessAccess(businessId);
         return inbox.findTop50ByBusinessIdAndStatusOrderByIdDesc(businessId, status).stream()
                 .map(EventStatus::from).toList();
     }
@@ -25,6 +28,7 @@ public class MessengerOperationsController {
     @PostMapping("/{eventId}/retry")
     @Transactional
     public EventStatus retry(@PathVariable String businessId, @PathVariable Long eventId) {
+        tenantAuthorization.requireBusinessAccess(businessId);
         var event = inbox.lockById(eventId).filter(item -> item.getBusinessId().equals(businessId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (event.getStatus() != MessengerInboxEvent.Status.FAILED) {

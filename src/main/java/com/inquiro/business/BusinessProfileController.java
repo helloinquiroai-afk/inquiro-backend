@@ -1,6 +1,7 @@
 package com.inquiro.business;
 
 import lombok.RequiredArgsConstructor;
+import com.inquiro.auth.TenantAuthorizationService;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 public class BusinessProfileController {
 
     private final BusinessAccountRepository businessAccountRepository;
+    private final TenantAuthorizationService tenantAuthorization;
 
     /*
      * =========================================================
@@ -19,6 +21,8 @@ public class BusinessProfileController {
     @GetMapping("/{businessId}/profile")
     public BusinessProfile getBusinessProfile(
             @PathVariable String businessId) {
+
+        tenantAuthorization.requireBusinessAccess(businessId);
 
         BusinessAccount account =
                 businessAccountRepository.findByBusinessId(
@@ -47,6 +51,8 @@ public class BusinessProfileController {
     public BusinessProfile updateBusinessProfile(
             @PathVariable String businessId,
             @RequestBody BusinessProfile profile) {
+
+        tenantAuthorization.requireBusinessAccess(businessId);
 
         if (profile == null) {
 

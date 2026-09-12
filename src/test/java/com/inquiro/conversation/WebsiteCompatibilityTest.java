@@ -3,6 +3,7 @@ package com.inquiro.conversation;
 import com.inquiro.business.*;
 import com.inquiro.communication.messenger.MetaSignatureValidator;
 import com.inquiro.config.ManagementAccessFilter;
+import com.inquiro.auth.TenantAuthorizationService;
 import com.inquiro.inquiry.*;
 import java.util.List;
 import java.util.Map;
@@ -21,17 +22,19 @@ class WebsiteCompatibilityTest {
     private ConversationService service;
     private ConversationRepository conversations;
     private BusinessAccountRepository accounts;
+    private TenantAuthorizationService tenantAuthorization;
 
     @BeforeEach void setup() {
         service = mock(ConversationService.class);
         conversations = mock(ConversationRepository.class);
         accounts = mock(BusinessAccountRepository.class);
+        tenantAuthorization = mock(TenantAuthorizationService.class);
         var channels = mock(BusinessChannelRepository.class);
         when(channels.findByTypeAndExternalId(BusinessChannelType.WEBSITE, "site"))
                 .thenReturn(new BusinessChannel("channel", "business", BusinessChannelType.WEBSITE, "site", true));
         var controller = new ConversationController(service, conversations, channels);
         ReflectionTestUtils.setField(controller, "websiteChannelId", "site");
-        mvc = MockMvcBuilders.standaloneSetup(controller, new BusinessProfileController(accounts))
+        mvc = MockMvcBuilders.standaloneSetup(controller, new BusinessProfileController(accounts, tenantAuthorization))
                 .addFilters(new ManagementAccessFilter("operator-key", new MetaSignatureValidator())).build();
     }
 

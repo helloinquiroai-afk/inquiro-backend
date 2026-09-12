@@ -1,6 +1,7 @@
 package com.inquiro.business;
 
 import lombok.RequiredArgsConstructor;
+import com.inquiro.auth.TenantAuthorizationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,6 +16,7 @@ public class BusinessChannelController {
     private final BusinessAccountRepository businessAccountRepository;
 
     private final BusinessChannelRepository businessChannelRepository;
+    private final TenantAuthorizationService tenantAuthorization;
 
 
     /*
@@ -26,6 +28,8 @@ public class BusinessChannelController {
     @GetMapping
     public List<BusinessChannel> getChannels(
             @PathVariable String businessId) {
+
+        tenantAuthorization.requireBusinessAccess(businessId);
 
         validateBusinessExists(
                 businessId
@@ -49,6 +53,8 @@ public class BusinessChannelController {
     public BusinessChannel addChannel(
             @PathVariable String businessId,
             @RequestBody CreateBusinessChannelRequest request) {
+
+        tenantAuthorization.requireBusinessAccess(businessId);
 
         validateBusinessExists(
                 businessId

@@ -70,6 +70,7 @@ An installed Maven can also run `mvn test` and `mvn package`. The app starts wit
 | `FACEBOOK_APP_SECRET` | Meta App Secret for validating POST signatures |
 | `FACEBOOK_GRAPH_API_VERSION` | Defaults to existing `v26.0`; set the version supported by your Meta app |
 | `INQUIRO_MANAGEMENT_API_KEY` | Long random operator key for management API access |
+| `INQUIRO_AUTH_SESSION_TTL_HOURS` | Business-user access-token lifetime; defaults to 24 hours (1–744) |
 | `DEFAULT_BUSINESS_ID` | Defaults to `biz_001` |
 | `WEBSITE_CHANNEL_ID` | Defaults to `website-default` |
 | `SEED_DEFAULT_BUSINESS` | Defaults to `true`; seeds missing default account and configured channel mappings |
@@ -81,9 +82,13 @@ An installed Maven can also run `mvn test` and `mvn package`. The app starts wit
 | `DATABASE_DDL_AUTO` | Defaults to `update` for development |
 | `H2_CONSOLE_ENABLED` | Defaults to `false` |
 
-Optional legacy WhatsApp settings are listed in `.env.example`. Its App Secret can be set with `WHATSAPP_APP_SECRET`; otherwise `FACEBOOK_APP_SECRET` is used. There is no JWT setting yet because business-user authentication is a later milestone.
+Optional legacy WhatsApp settings are listed in `.env.example`. Its App Secret can be set with `WHATSAPP_APP_SECRET`; otherwise `FACEBOOK_APP_SECRET` is used.
 
-The operator key protects `/api/business/**`, `/api/knowledge/**`, `/api/test/**` and the optional H2 console. Supply it in `X-Inquiro-Management-Key`. With no key configured, management access is denied. This is a single-operator pilot control, **not** business-user authentication or tenant authorization; never distribute this key to customers or embed it in public frontend code.
+Business users register and log in with `/api/auth/register` and `/api/auth/login`. Passwords use BCrypt; login returns a cryptographically random opaque Bearer token, while only its SHA-256 hash is persisted. Send the token in `Authorization: Bearer <token>` to access business-management APIs. Tokens expire and `POST /api/auth/logout` revokes them.
+
+Each authenticated business user is checked against a `BusinessMembership` for the business ID in the request. Owners and admins may operate their own business; only owners can view members or add an already-registered user as an admin. This prevents tenant access by URL manipulation.
+
+The operator key remains a temporary internal bypass for `/api/business/**`, `/api/knowledge/**`, `/api/test/**` and the optional H2 console. Supply it in `X-Inquiro-Management-Key`. It is not a customer credential and must never be embedded in public frontend code. `POST /api/knowledge/ingest` and `/api/test/**` remain operator-only.
 
 ## Configure a business for the demo
 
@@ -138,13 +143,15 @@ Responses retain `inquiry`, `missingFields`, `status`, and `reply`. `DELETE /api
 | `POST /api/conversations/message` | Stateful website chat |
 | `DELETE /api/conversations/{sessionId}` | Website reset |
 | `POST /api/chat` | Existing stateless chat |
-| `POST /api/business/accounts` | Create business account; operator key required |
+| `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout` | Business-user account and opaque access-session lifecycle |
+| `POST /api/business/accounts` | Create business account; authenticated creator becomes OWNER (operator key remains supported) |
 | `GET/PUT /api/business/accounts/{id}/profile` | Read/update profile |
 | `GET/PUT /api/business/accounts/{id}/knowledge` | Read/replace the complete knowledge object |
 | `POST /api/business/accounts/{id}/knowledge/faq-suggestions` | Generate up to 10 transient drafts from configured knowledge |
 | `POST /api/business/accounts/{id}/knowledge/faq-suggestions/review` | Explicitly approve/edit or reject a FAQ draft |
 | `POST /api/knowledge/ingest` | Merge operator-supplied information into an existing persisted profile |
 | `GET/POST /api/business/accounts/{id}/channels` | Read/add channel mapping |
+| `GET/POST /api/business/accounts/{id}/members` | Owner-only membership listing and adding an existing user as ADMIN |
 | `GET /api/business/requests?businessId=...` | Requests for a business |
 | `GET /api/business/requests/pending?businessId=...` | Pending requests |
 | `POST /api/business/requests/{id}/confirm` or `/reject` | Existing manual request decision |

@@ -1,6 +1,7 @@
 package com.inquiro.business;
 
 import com.inquiro.request.RequestDefinition;
+import com.inquiro.auth.TenantAuthorizationService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -18,12 +19,14 @@ import java.util.UUID;
 public class BusinessAccountController {
 
     private final BusinessAccountRepository businessAccountRepository;
+    private final TenantAuthorizationService tenantAuthorization;
 
     /**
      * Create a new business account with its initial onboarding information.
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
     public BusinessAccountResponse createBusinessAccount(
             @Valid @RequestBody CreateBusinessAccountRequest request) {
 
@@ -60,6 +63,7 @@ public class BusinessAccountController {
                 );
 
         businessAccountRepository.save(account);
+        tenantAuthorization.createOwnerMembershipForCurrentUser(businessId);
 
         return toResponse(account);
     }
@@ -72,6 +76,7 @@ public class BusinessAccountController {
             @PathVariable String businessId) {
 
         validateBusinessId(businessId);
+        tenantAuthorization.requireBusinessAccess(businessId);
 
         BusinessAccount account =
                 businessAccountRepository.findByBusinessId(businessId);
@@ -101,6 +106,7 @@ public class BusinessAccountController {
             @Valid @RequestBody UpdateOnboardingRequest request) {
 
         validateBusinessId(businessId);
+        tenantAuthorization.requireBusinessAccess(businessId);
 
         if (request == null) {
             throw new IllegalArgumentException("Request cannot be null");
