@@ -15,6 +15,8 @@ import com.inquiro.business.BusinessChannelType;
 import com.inquiro.business.BusinessProfile;
 import com.inquiro.business.BusinessRequest;
 import com.inquiro.business.BusinessRequestService;
+import com.inquiro.business.onboarding.OnboardingService;
+import com.inquiro.business.onboarding.OnboardingSummary;
 import com.inquiro.inquiry.InquiryOrchestrator;
 import com.inquiro.inquiry.InquiryResponse;
 import com.inquiro.inquiry.InquiryResult;
@@ -50,17 +52,41 @@ public class ConversationService {
 
     private final BusinessBoundaryService businessBoundaryService;
 
+    private final OnboardingService onboardingService;
+
+
+    public InquiryResponse process(
+            String sessionId,
+            String externalChannelId) {
+
+        return process(
+                sessionId,
+                BusinessChannelType.MESSENGER,
+                externalChannelId,
+                null
+        );
+    }
+
 
     public InquiryResponse process(
             String sessionId,
             String externalChannelId,
             String message) {
 
-        return process(sessionId, BusinessChannelType.MESSENGER, externalChannelId, message);
+        return process(
+                sessionId,
+                BusinessChannelType.MESSENGER,
+                externalChannelId,
+                message
+        );
     }
 
-    public InquiryResponse process(String sessionId, BusinessChannelType channelType,
-                                   String externalChannelId, String message) {
+
+    public InquiryResponse process(
+            String sessionId,
+            BusinessChannelType channelType,
+            String externalChannelId,
+            String message) {
 
 
         /*
@@ -105,12 +131,10 @@ public class ConversationService {
         }
 
 
-/*
+        /*
          * =========================================================
          * 2. RESOLVE BUSINESS
          * =========================================================
-         *
-         * The business is resolved independently of the channel.
          */
 
         BusinessAccount businessAccount =
@@ -126,16 +150,60 @@ public class ConversationService {
             );
         }
 
+
+        /*
+         * =========================================================
+         * 3. ENFORCE RECEPTIONIST READINESS
+         * =========================================================
+         *
+         * A business can exist before onboarding is complete.
+         *
+         * However, the public receptionist must NOT be exposed
+         * until the business has completed its required setup.
+         *
+         * Readiness is derived from:
+         *
+         *  - Business information
+         *  - Services/workflows
+         *  - Business knowledge
+         *  - Enabled channel
+         *
+         * This is deliberately checked before:
+         *
+         *  - loading conversation state
+         *  - calling AI
+         *  - creating business requests
+         */
+
+        OnboardingSummary onboarding =
+                onboardingService.getOnboardingSummary(
+                        businessAccount.businessId()
+                );
+
+        if (onboarding == null
+                || !onboarding.readyForReceptionist()) {
+
+            throw new IllegalStateException(
+                    "Business is not ready for receptionist"
+            );
+        }
+
+
         BusinessProfile businessProfile =
                 businessAccount.profile();
 
-        sessionId = new ConversationIdentity(businessAccount.businessId(), channelType,
-                externalChannelId, sessionId).sessionId();
+        sessionId =
+                new ConversationIdentity(
+                        businessAccount.businessId(),
+                        channelType,
+                        externalChannelId,
+                        sessionId
+                ).sessionId();
 
 
         /*
          * =========================================================
-         * 3. LOAD CONVERSATION
+         * 4. LOAD CONVERSATION
          * =========================================================
          */
 
@@ -145,13 +213,13 @@ public class ConversationService {
 
         /*
          * =========================================================
-         * 4. NEW CONVERSATION
+         * 5. NEW CONVERSATION
          * =========================================================
          */
 
         if (session == null) {
 
-InquiryResponse response =
+            InquiryResponse response =
                     inquiryOrchestrator.process(
                             message,
                             businessProfile
@@ -159,9 +227,7 @@ InquiryResponse response =
 
 
             /*
-             * =====================================================
              * REQUEST NEEDS MORE INFORMATION
-             * =====================================================
              */
 
             if (response.status()
@@ -177,9 +243,7 @@ InquiryResponse response =
 
 
             /*
-             * =====================================================
              * REQUEST IS ALREADY COMPLETE
-             * =====================================================
              */
 
             if (response.status()
@@ -192,7 +256,9 @@ InquiryResponse response =
                         businessAccount,
                         sessionId,
                         response.inquiry()
-                ).withKnowledgeReply(response.knowledgeReply());
+                ).withKnowledgeReply(
+                        response.knowledgeReply()
+                );
             }
 
             return response;
@@ -201,14 +267,7 @@ InquiryResponse response =
 
         /*
          * =========================================================
-         * 5. EXISTING CONVERSATION
-         * =========================================================
-         */
-
-
-        /*
-         * =========================================================
-         * 6. DETERMINE FOLLOW-UP OR NEW REQUEST
+         * 6. EXISTING CONVERSATION
          * =========================================================
          */
 
@@ -224,25 +283,40 @@ InquiryResponse response =
 
         /*
          * =========================================================
-         * 7. NEW REQUEST
+         * 7. BUSINESS QUESTION
          * =========================================================
          */
 
-        if ("BUSINESS_QUESTION".equalsIgnoreCase(intent.intent())) {
-            String answer = inquiryOrchestrator.answerKnowledgeQuestions(
-                    intent.knowledgeQuestions().isEmpty() ? List.of(message) : intent.knowledgeQuestions(), businessProfile);
-            return new InquiryResponse(session.getInquiry(), session.getMissingFields(),
-                    InquiryStatus.NEEDS_INFORMATION, answer);
+        if ("BUSINESS_QUESTION".equalsIgnoreCase(
+                intent.intent()
+        )) {
+
+            String answer =
+                    inquiryOrchestrator.answerKnowledgeQuestions(
+                            intent.knowledgeQuestions().isEmpty()
+                                    ? List.of(message)
+                                    : intent.knowledgeQuestions(),
+                            businessProfile
+                    );
+
+            return new InquiryResponse(
+                    session.getInquiry(),
+                    session.getMissingFields(),
+                    InquiryStatus.NEEDS_INFORMATION,
+                    answer
+            );
         }
+
+
+        /*
+         * =========================================================
+         * 8. NEW REQUEST
+         * =========================================================
+         */
 
         if ("NEW_REQUEST".equalsIgnoreCase(
                 intent.intent()
         )) {
-
-            /*
-             * Analyze the message as a completely
-             * new request using the current business profile.
-             */
 
             InquiryResponse response =
                     inquiryOrchestrator.process(
@@ -251,9 +325,22 @@ InquiryResponse response =
                     );
 
 
-            // Keep unfinished requests when answering questions or asking for clarification.
-            if (!isBusinessRequest(response.inquiry())) return response;
-            conversationRepository.remove(sessionId);
+            /*
+             * Keep unfinished requests when answering questions
+             * or asking for clarification.
+             */
+
+            if (!isBusinessRequest(
+                    response.inquiry()
+            )) {
+
+                return response;
+            }
+
+            conversationRepository.remove(
+                    sessionId
+            );
+
 
             /*
              * Save incomplete new request.
@@ -285,7 +372,9 @@ InquiryResponse response =
                         businessAccount,
                         sessionId,
                         response.inquiry()
-                ).withKnowledgeReply(response.knowledgeReply());
+                ).withKnowledgeReply(
+                        response.knowledgeReply()
+                );
             }
 
             return response;
@@ -294,13 +383,18 @@ InquiryResponse response =
 
         /*
          * =========================================================
-         * 8. FOLLOW-UP TO EXISTING REQUEST
+         * 9. FOLLOW-UP TO EXISTING REQUEST
          * =========================================================
          */
 
-        String knowledgeReply = inquiryOrchestrator.answerKnowledgeQuestions(intent.knowledgeQuestions(), businessProfile);
+        String knowledgeReply =
+                inquiryOrchestrator.answerKnowledgeQuestions(
+                        intent.knowledgeQuestions(),
+                        businessProfile
+                );
 
-FollowUpAnalysis replyAnalysis =
+
+        FollowUpAnalysis replyAnalysis =
                 aiService.analyzeFollowUp(
                         session.getInquiry().service(),
                         session.getInquiry().fields(),
@@ -308,9 +402,10 @@ FollowUpAnalysis replyAnalysis =
                         message
                 );
 
-/*
+
+        /*
          * =========================================================
-         * 9. MERGE CUSTOMER INFORMATION
+         * 10. MERGE CUSTOMER INFORMATION
          * =========================================================
          */
 
@@ -320,9 +415,10 @@ FollowUpAnalysis replyAnalysis =
                         replyAnalysis.entities()
                 );
 
-/*
+
+        /*
          * =========================================================
-         * 10. BUILD UPDATED REQUEST ANALYSIS
+         * 11. BUILD UPDATED REQUEST ANALYSIS
          * =========================================================
          */
 
@@ -336,7 +432,7 @@ FollowUpAnalysis replyAnalysis =
 
         /*
          * =========================================================
-         * 11. BUILD UPDATED INQUIRY
+         * 12. BUILD UPDATED INQUIRY
          * =========================================================
          */
 
@@ -350,7 +446,7 @@ FollowUpAnalysis replyAnalysis =
 
         /*
          * =========================================================
-         * 12. CHECK REQUIRED INFORMATION
+         * 13. CHECK REQUIRED INFORMATION
          * =========================================================
          */
 
@@ -360,9 +456,10 @@ FollowUpAnalysis replyAnalysis =
                         businessProfile
                 );
 
-/*
+
+        /*
          * =========================================================
-         * 13. STILL MISSING INFORMATION
+         * 14. STILL MISSING INFORMATION
          * =========================================================
          */
 
@@ -376,7 +473,7 @@ FollowUpAnalysis replyAnalysis =
                             Instant.now()
                     );
 
-conversationRepository.save(
+            conversationRepository.save(
                     updatedSession
             );
 
@@ -387,26 +484,30 @@ conversationRepository.save(
                             updatedInquiry.service()
                     );
 
-return new InquiryResponse(
+            return new InquiryResponse(
                     updatedInquiry,
                     missing,
                     InquiryStatus.NEEDS_INFORMATION,
                     reply
-            ).withKnowledgeReply(knowledgeReply);
+            ).withKnowledgeReply(
+                    knowledgeReply
+            );
         }
 
 
         /*
          * =========================================================
-         * 14. ALL INFORMATION COLLECTED
+         * 15. ALL INFORMATION COLLECTED
          * =========================================================
          */
 
-return processCompletedRequest(
+        return processCompletedRequest(
                 businessAccount,
                 sessionId,
                 updatedInquiry
-        ).withKnowledgeReply(knowledgeReply);
+        ).withKnowledgeReply(
+                knowledgeReply
+        );
     }
 
 
@@ -414,17 +515,6 @@ return processCompletedRequest(
      * =============================================================
      * PROCESS COMPLETED BUSINESS REQUEST
      * =============================================================
-     *
-     * Flow:
-     *
-     * 1. Validate business boundary
-     * 2. If human review required → create review request
-     * 3. If unsupported → stop
-     * 4. Check availability
-     * 5. Create business request
-     * 6. Clear conversation
-     * 7. Return customer response
-     *
      */
 
     private InquiryResponse processCompletedRequest(
@@ -454,11 +544,6 @@ return processCompletedRequest(
          * =========================================================
          * 1. CHECK BUSINESS BOUNDARY
          * =========================================================
-         *
-         * This must happen BEFORE availability.
-         *
-         * Availability should only be checked for services
-         * supported by the business.
          */
 
         BusinessBoundaryService.BoundaryResult boundary =
@@ -484,7 +569,6 @@ return processCompletedRequest(
                             inquiry.service(),
                             inquiry.fields()
                     );
-
 
             conversationRepository.remove(
                     customerId
@@ -588,7 +672,7 @@ return processCompletedRequest(
             String sessionId,
             InquiryResponse response) {
 
-conversationRepository.save(
+        conversationRepository.save(
                 new ConversationSession(
                         sessionId,
                         response.inquiry(),
