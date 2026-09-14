@@ -72,7 +72,7 @@ public class BusinessAccountController {
      * Get the complete onboarding state for a business.
      */
     @GetMapping("/{businessId}/onboarding")
-    public OnboardingResponse getOnboarding(
+    public OnboardingResponse getOnboardingSummary(
             @PathVariable String businessId) {
 
         validateBusinessId(businessId);
