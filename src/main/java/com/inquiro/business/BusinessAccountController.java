@@ -1,5 +1,7 @@
 package com.inquiro.business;
 
+import com.inquiro.business.onboarding.OnboardingService;
+import com.inquiro.business.onboarding.OnboardingSummary;
 import com.inquiro.request.RequestDefinition;
 import com.inquiro.auth.TenantAuthorizationService;
 import jakarta.validation.Valid;
@@ -9,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -20,6 +23,7 @@ public class BusinessAccountController {
 
     private final BusinessAccountRepository businessAccountRepository;
     private final TenantAuthorizationService tenantAuthorization;
+    private final OnboardingService onboardingService;
 
     /**
      * Create a new business account with its initial onboarding information.
@@ -72,23 +76,23 @@ public class BusinessAccountController {
      * Get the complete onboarding state for a business.
      */
     @GetMapping("/{businessId}/onboarding")
-    public OnboardingResponse getOnboardingSummary(
+    public OnboardingSummary getOnboardingSummary(
             @PathVariable String businessId) {
 
         validateBusinessId(businessId);
         tenantAuthorization.requireBusinessAccess(businessId);
 
-        BusinessAccount account =
-                businessAccountRepository.findByBusinessId(businessId);
+        OnboardingSummary summary =
+                onboardingService.getOnboardingSummary(businessId);
 
-        if (account == null) {
-            throw new org.springframework.web.server.ResponseStatusException(
+        if (summary == null) {
+            throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
                     "Business not found"
             );
         }
 
-        return toOnboardingResponse(account);
+        return summary;
     }
 
     /**
