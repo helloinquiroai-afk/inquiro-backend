@@ -10,9 +10,9 @@ import com.inquiro.business.BusinessProfile;
 import com.inquiro.request.RequestDefinition;
 
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -69,6 +69,25 @@ public class OnboardingService {
             status = OnboardingStatus.NOT_STARTED;
         }
 
+        List<String> missingRequirements =
+                new ArrayList<>();
+
+        if (!businessInformationComplete) {
+            missingRequirements.add("BUSINESS_INFORMATION");
+        }
+
+        if (!servicesConfigured) {
+            missingRequirements.add("SERVICES");
+        }
+
+        if (!knowledgeConfigured) {
+            missingRequirements.add("KNOWLEDGE");
+        }
+
+        if (!channelConfigured) {
+            missingRequirements.add("CHANNEL");
+        }
+
         return new OnboardingSummary(
                 businessId,
                 status,
@@ -76,7 +95,8 @@ public class OnboardingService {
                 servicesConfigured,
                 knowledgeConfigured,
                 channelConfigured,
-                readyForReceptionist
+                readyForReceptionist,
+                missingRequirements
         );
     }
 

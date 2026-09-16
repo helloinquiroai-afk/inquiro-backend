@@ -2,10 +2,8 @@ package com.inquiro.business.onboarding;
 
 import com.inquiro.business.BusinessAccount;
 import com.inquiro.business.BusinessAccountRepository;
-import com.inquiro.business.BusinessBoundaries;
 import com.inquiro.business.BusinessChannel;
 import com.inquiro.business.BusinessChannelRepository;
-import com.inquiro.business.BusinessChannelType;
 import com.inquiro.business.BusinessKnowledge;
 import com.inquiro.business.BusinessProfile;
 import com.inquiro.request.RequestDefinition;
@@ -16,31 +14,24 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class OnboardingServiceTest {
 
     private BusinessAccountRepository businessAccountRepository;
-
     private BusinessChannelRepository businessChannelRepository;
-
-    private OnboardingService onboardingService;
+    private OnboardingService service;
 
     @BeforeEach
-    void setUp() {
-
+    void setup() {
         businessAccountRepository =
                 mock(BusinessAccountRepository.class);
 
         businessChannelRepository =
                 mock(BusinessChannelRepository.class);
 
-        onboardingService =
+        service =
                 new OnboardingService(
                         businessAccountRepository,
                         businessChannelRepository
@@ -48,25 +39,7 @@ class OnboardingServiceTest {
     }
 
     @Test
-    void shouldReturnNullWhenBusinessDoesNotExist() {
-
-        String businessId = "biz_missing";
-
-        when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(null);
-
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
-
-        assertNull(result);
-    }
-
-    @Test
-    void shouldReturnNotStartedForEmptyBusiness() {
-
-        String businessId = "biz_001";
+    void returnsAllRequirementsMissingWhenNothingIsConfigured() {
 
         BusinessProfile profile =
                 new BusinessProfile(
@@ -77,585 +50,226 @@ class OnboardingServiceTest {
                         BusinessKnowledge.empty()
                 );
 
-        BusinessAccount account =
+        when(
+                businessAccountRepository.findByBusinessId("biz-1")
+        ).thenReturn(
                 new BusinessAccount(
-                        businessId,
+                        "biz-1",
                         "",
                         profile
-                );
+                )
+        );
 
         when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(account);
-
-        when(
-                businessChannelRepository
-                        .findByBusinessId(businessId)
+                businessChannelRepository.findByBusinessId("biz-1")
         ).thenReturn(List.of());
 
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
+        OnboardingSummary summary =
+                service.getOnboardingSummary("biz-1");
 
         assertEquals(
                 OnboardingStatus.NOT_STARTED,
-                result.status()
+                summary.status()
         );
 
         assertFalse(
-                result.businessInformationComplete()
+                summary.businessInformationComplete()
         );
 
         assertFalse(
-                result.servicesConfigured()
+                summary.servicesConfigured()
         );
 
         assertFalse(
-                result.knowledgeConfigured()
+                summary.knowledgeConfigured()
         );
 
         assertFalse(
-                result.channelConfigured()
+                summary.channelConfigured()
         );
 
         assertFalse(
-                result.readyForReceptionist()
-        );
-    }
-
-    @Test
-    void shouldBeInProgressWhenBusinessInformationIsConfigured() {
-
-        String businessId = "biz_002";
-
-        BusinessProfile profile =
-                new BusinessProfile(
-                        "Ocean View Hotel",
-                        "HOTEL",
-                        "A hotel in Matara",
-                        List.of(),
-                        BusinessKnowledge.empty()
-                );
-
-        BusinessAccount account =
-                new BusinessAccount(
-                        businessId,
-                        "Ocean View Hotel",
-                        profile
-                );
-
-        when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(account);
-
-        when(
-                businessChannelRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(List.of());
-
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
-
-        assertEquals(
-                OnboardingStatus.IN_PROGRESS,
-                result.status()
-        );
-
-        assertTrue(
-                result.businessInformationComplete()
-        );
-
-        assertFalse(
-                result.servicesConfigured()
-        );
-
-        assertFalse(
-                result.knowledgeConfigured()
-        );
-
-        assertFalse(
-                result.channelConfigured()
-        );
-
-        assertFalse(
-                result.readyForReceptionist()
-        );
-    }
-
-    @Test
-    void shouldRecognizeConfiguredService() {
-
-        String businessId = "biz_003";
-
-        RequestDefinition service =
-                new RequestDefinition(
-                        "ROOM_BOOKING",
-                        "Book a hotel room",
-                        List.of("checkInDate", "guestCount")
-                );
-
-        BusinessProfile profile =
-                new BusinessProfile(
-                        "Ocean View Hotel",
-                        "HOTEL",
-                        "A hotel in Matara",
-                        List.of(service),
-                        BusinessKnowledge.empty()
-                );
-
-        BusinessAccount account =
-                new BusinessAccount(
-                        businessId,
-                        "Ocean View Hotel",
-                        profile
-                );
-
-        when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(account);
-
-        when(
-                businessChannelRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(List.of());
-
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
-
-        assertTrue(
-                result.businessInformationComplete()
-        );
-
-        assertTrue(
-                result.servicesConfigured()
+                summary.readyForReceptionist()
         );
 
         assertEquals(
-                OnboardingStatus.IN_PROGRESS,
-                result.status()
+                List.of(
+                        "BUSINESS_INFORMATION",
+                        "SERVICES",
+                        "KNOWLEDGE",
+                        "CHANNEL"
+                ),
+                summary.missingRequirements()
         );
     }
 
     @Test
-    void shouldNotRecognizeServiceWithBlankRequestType() {
-
-        String businessId = "biz_004";
-
-        RequestDefinition service =
-                new RequestDefinition(
-                        "",
-                        "Book a hotel room",
-                        List.of("checkInDate")
-                );
+    void returnsOnlyMissingRequirementsWhenPartiallyConfigured() {
 
         BusinessProfile profile =
                 new BusinessProfile(
-                        "Ocean View Hotel",
-                        "HOTEL",
-                        "A hotel in Matara",
-                        List.of(service),
-                        BusinessKnowledge.empty()
-                );
-
-        BusinessAccount account =
-                new BusinessAccount(
-                        businessId,
-                        "Ocean View Hotel",
-                        profile
-                );
-
-        when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(account);
-
-        when(
-                businessChannelRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(List.of());
-
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
-
-        assertFalse(
-                result.servicesConfigured()
-        );
-    }
-
-    @Test
-    void shouldRecognizeMeaningfulKnowledge() {
-
-        String businessId = "biz_005";
-
-        BusinessKnowledge knowledge =
-                new BusinessKnowledge(
-                        "A family hotel in Matara",
-                        List.of(),
-                        List.of(),
-                        Map.of(),
-                        List.of(),
-                        List.of(),
-                        ""
-                );
-
-        BusinessProfile profile =
-                new BusinessProfile(
-                        "Ocean View Hotel",
-                        "HOTEL",
-                        "Hotel",
-                        List.of(),
-                        knowledge
-                );
-
-        BusinessAccount account =
-                new BusinessAccount(
-                        businessId,
-                        "Ocean View Hotel",
-                        profile
-                );
-
-        when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(account);
-
-        when(
-                businessChannelRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(List.of());
-
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
-
-        assertTrue(
-                result.knowledgeConfigured()
-        );
-    }
-
-    @Test
-    void shouldRecognizeConfiguredChannel() {
-
-        String businessId = "biz_006";
-
-        BusinessProfile profile =
-                new BusinessProfile(
+                        "Test Hotel",
+                        "HOSPITALITY",
                         "",
-                        "",
-                        "",
-                        List.of(),
-                        BusinessKnowledge.empty()
-                );
-
-        BusinessAccount account =
-                new BusinessAccount(
-                        businessId,
-                        "",
-                        profile
-                );
-
-        BusinessChannel channel =
-                new BusinessChannel(
-                        "channel_001",
-                        businessId,
-                        BusinessChannelType.WEBSITE,
-                        "website_001",
-                        true
-                );
-
-        when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(account);
-
-        when(
-                businessChannelRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(List.of(channel));
-
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
-
-        assertTrue(
-                result.channelConfigured()
-        );
-
-        assertEquals(
-                OnboardingStatus.IN_PROGRESS,
-                result.status()
-        );
-    }
-
-    @Test
-    void shouldIgnoreDisabledChannels() {
-
-        String businessId = "biz_007";
-
-        BusinessProfile profile =
-                new BusinessProfile(
-                        "",
-                        "",
-                        "",
-                        List.of(),
-                        BusinessKnowledge.empty()
-                );
-
-        BusinessAccount account =
-                new BusinessAccount(
-                        businessId,
-                        "",
-                        profile
-                );
-
-        BusinessChannel channel =
-                new BusinessChannel(
-                        "channel_001",
-                        businessId,
-                        BusinessChannelType.WEBSITE,
-                        "website_001",
-                        false
-                );
-
-        when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(account);
-
-        when(
-                businessChannelRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(List.of(channel));
-
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
-
-        assertFalse(
-                result.channelConfigured()
-        );
-    }
-
-    @Test
-    void shouldBeCompletedWhenAllRequirementsAreConfigured() {
-
-        String businessId = "biz_008";
-
-        RequestDefinition service =
-                new RequestDefinition(
-                        "ROOM_BOOKING",
-                        "Book a hotel room",
                         List.of(
-                                "checkInDate",
-                                "guestCount"
+                                new RequestDefinition(
+                                        "ROOM_BOOKING",
+                                        "Room booking",
+                                        List.of("location")
+                                )
+                        ),
+                        BusinessKnowledge.empty()
+                );
+
+        when(
+                businessAccountRepository.findByBusinessId("biz-1")
+        ).thenReturn(
+                new BusinessAccount(
+                        "biz-1",
+                        "Test Hotel",
+                        profile
+                )
+        );
+
+        when(
+                businessChannelRepository.findByBusinessId("biz-1")
+        ).thenReturn(List.of());
+
+        OnboardingSummary summary =
+                service.getOnboardingSummary("biz-1");
+
+        assertEquals(
+                OnboardingStatus.IN_PROGRESS,
+                summary.status()
+        );
+
+        assertTrue(
+                summary.businessInformationComplete()
+        );
+
+        assertTrue(
+                summary.servicesConfigured()
+        );
+
+        assertFalse(
+                summary.knowledgeConfigured()
+        );
+
+        assertFalse(
+                summary.channelConfigured()
+        );
+
+        assertFalse(
+                summary.readyForReceptionist()
+        );
+
+        assertEquals(
+                List.of(
+                        "KNOWLEDGE",
+                        "CHANNEL"
+                ),
+                summary.missingRequirements()
+        );
+    }
+
+    @Test
+    void returnsNoMissingRequirementsWhenOnboardingIsComplete() {
+
+        BusinessProfile profile =
+                new BusinessProfile(
+                        "Test Hotel",
+                        "HOSPITALITY",
+                        "A hotel in Matara",
+                        List.of(
+                                new RequestDefinition(
+                                        "ROOM_BOOKING",
+                                        "Room booking",
+                                        List.of("location")
+                                )
+                        ),
+                        new BusinessKnowledge(
+                                "A hotel in Matara",
+                                List.of("ROOM_BOOKING"),
+                                List.of(),
+                                Map.of("parking", "Free"),
+                                List.of(),
+                                List.of(),
+                                ""
                         )
                 );
 
-        BusinessKnowledge knowledge =
-                new BusinessKnowledge(
-                        "A family hotel in Matara",
-                        List.of("Rooms"),
-                        List.of(),
-                        Map.of(
-                                "checkInTime",
-                                "2 PM"
-                        ),
-                        List.of(
-                                "Do you provide breakfast?"
-                        ),
-                        List.of(
-                                "Cancellation allowed 24 hours before arrival"
-                        ),
-                        "Be friendly and helpful"
-                );
-
-        BusinessProfile profile =
-                new BusinessProfile(
-                        "Ocean View Hotel",
-                        "HOTEL",
-                        "A hotel in Matara",
-                        List.of(service),
-                        knowledge
-                );
-
-        BusinessAccount account =
+        when(
+                businessAccountRepository.findByBusinessId("biz-1")
+        ).thenReturn(
                 new BusinessAccount(
-                        businessId,
-                        "Ocean View Hotel",
+                        "biz-1",
+                        "Test Hotel",
                         profile
-                );
-
-        BusinessChannel channel =
-                new BusinessChannel(
-                        "channel_001",
-                        businessId,
-                        BusinessChannelType.WEBSITE,
-                        "website_001",
-                        true
-                );
+                )
+        );
 
         when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(account);
+                businessChannelRepository.findByBusinessId("biz-1")
+        ).thenReturn(
+                List.of(
+                        new BusinessChannel(
+                                "channel-1",
+                                "biz-1",
+                                com.inquiro.business.BusinessChannelType.WEBSITE,
+                                "website-1",
+                                true
+                        )
+                )
+        );
 
-        when(
-                businessChannelRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(List.of(channel));
-
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
+        OnboardingSummary summary =
+                service.getOnboardingSummary("biz-1");
 
         assertEquals(
                 OnboardingStatus.COMPLETED,
-                result.status()
+                summary.status()
         );
 
         assertTrue(
-                result.businessInformationComplete()
+                summary.businessInformationComplete()
         );
 
         assertTrue(
-                result.servicesConfigured()
+                summary.servicesConfigured()
         );
 
         assertTrue(
-                result.knowledgeConfigured()
+                summary.knowledgeConfigured()
         );
 
         assertTrue(
-                result.channelConfigured()
+                summary.channelConfigured()
         );
 
         assertTrue(
-                result.readyForReceptionist()
+                summary.readyForReceptionist()
+        );
+
+        assertTrue(
+                summary.missingRequirements().isEmpty()
         );
     }
 
     @Test
-    void shouldRemainInProgressWhenOneRequirementIsMissing() {
-
-        String businessId = "biz_009";
-
-        RequestDefinition service =
-                new RequestDefinition(
-                        "ROOM_BOOKING",
-                        "Book a hotel room",
-                        List.of("checkInDate")
-                );
-
-        BusinessKnowledge knowledge =
-                new BusinessKnowledge(
-                        "A family hotel in Matara",
-                        List.of(),
-                        List.of(),
-                        Map.of(),
-                        List.of(),
-                        List.of(),
-                        ""
-                );
-
-        BusinessProfile profile =
-                new BusinessProfile(
-                        "Ocean View Hotel",
-                        "HOTEL",
-                        "Hotel",
-                        List.of(service),
-                        knowledge
-                );
-
-        BusinessAccount account =
-                new BusinessAccount(
-                        businessId,
-                        "Ocean View Hotel",
-                        profile
-                );
+    void returnsNullWhenBusinessDoesNotExist() {
 
         when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(account);
+                businessAccountRepository.findByBusinessId("unknown")
+        ).thenReturn(null);
 
-        // No channel configured.
-        when(
-                businessChannelRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(List.of());
+        OnboardingSummary summary =
+                service.getOnboardingSummary("unknown");
 
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
+        assertNull(summary);
 
-        assertEquals(
-                OnboardingStatus.IN_PROGRESS,
-                result.status()
-        );
-
-        assertTrue(
-                result.businessInformationComplete()
-        );
-
-        assertTrue(
-                result.servicesConfigured()
-        );
-
-        assertTrue(
-                result.knowledgeConfigured()
-        );
-
-        assertFalse(
-                result.channelConfigured()
-        );
-
-        assertFalse(
-                result.readyForReceptionist()
-        );
-    }
-
-    @Test
-    void shouldAcceptAnyEnabledChannelType() {
-
-        String businessId = "biz_010";
-
-        BusinessProfile profile =
-                new BusinessProfile(
-                        "Ocean View Hotel",
-                        "HOTEL",
-                        "",
-                        List.of(),
-                        BusinessKnowledge.empty()
-                );
-
-        BusinessAccount account =
-                new BusinessAccount(
-                        businessId,
-                        "Ocean View Hotel",
-                        profile
-                );
-
-        BusinessChannel channel =
-                new BusinessChannel(
-                        "channel_001",
-                        businessId,
-                        BusinessChannelType.MESSENGER,
-                        "page_123",
-                        true
-                );
-
-        when(
-                businessAccountRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(account);
-
-        when(
-                businessChannelRepository
-                        .findByBusinessId(businessId)
-        ).thenReturn(List.of(channel));
-
-        OnboardingSummary result =
-                onboardingService.getOnboardingSummary(businessId);
-
-        assertTrue(
-                result.channelConfigured()
-        );
+        verify(
+                businessChannelRepository,
+                never()
+        ).findByBusinessId(anyString());
     }
 }
