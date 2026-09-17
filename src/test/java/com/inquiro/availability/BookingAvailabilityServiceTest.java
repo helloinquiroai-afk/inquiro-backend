@@ -41,7 +41,7 @@ class BookingAvailabilityServiceTest {
     void confirmsSlotWhenBusinessIsOpenAndNoBookingConflicts() {
         BookingAvailabilityService service = newService();
         givenBusinessIsOpen();
-        when(conflicts()).thenReturn(List.of());
+        when(conflicts()).thenReturn(List.<BookingEntity>of());
 
         AvailabilityResult result = service.check(
                 BUSINESS_ID,
@@ -64,7 +64,7 @@ class BookingAvailabilityServiceTest {
     void rejectsSlotWhenBookingConflicts() {
         BookingAvailabilityService service = newService();
         givenBusinessIsOpen();
-        when(conflicts()).thenReturn(List.of(booking()));
+        when(conflicts()).thenReturn(List.<BookingEntity>of(booking()));
 
         AvailabilityResult result = service.check(
                 BUSINESS_ID,
@@ -80,7 +80,7 @@ class BookingAvailabilityServiceTest {
     void cancelledBookingDoesNotBlockSlot() {
         BookingAvailabilityService service = newService();
         givenBusinessIsOpen();
-        when(conflicts()).thenReturn(List.of());
+        when(conflicts()).thenReturn(List.<BookingEntity>of());
 
         AvailabilityResult result = service.check(
                 BUSINESS_ID,
