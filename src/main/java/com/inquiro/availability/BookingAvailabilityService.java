@@ -32,11 +32,6 @@ public class BookingAvailabilityService {
         this.scheduleSource = scheduleSource;
     }
 
-    /**
-     * Checks both business operating hours and existing bookings.
-     * The businessId is supplied explicitly so tenant identity is not
-     * inferred from customer-controlled inquiry fields.
-     */
     public AvailabilityResult check(
             String businessId,
             String service,
@@ -44,7 +39,7 @@ public class BookingAvailabilityService {
             BusinessProfile businessProfile) {
 
         if (businessId == null || businessId.isBlank()) {
-            return unknown("A business is required to check availability.");
+            return unknown("Business ID is required to check booking availability.");
         }
 
         if (businessProfile == null) {
