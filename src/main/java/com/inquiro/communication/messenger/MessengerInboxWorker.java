@@ -48,7 +48,7 @@ public class MessengerInboxWorker {
         }
         event.setReply(reply.length() > 10000 ? reply.substring(0, 10000) : reply);
         event.setStatus(MessengerInboxEvent.Status.REPLY_READY);
-        event.setNextAttemptAt(Instant.now());
+        event.setNextAttemptAt(Instant.now().minusSeconds(1));
     }
 
     @Transactional
