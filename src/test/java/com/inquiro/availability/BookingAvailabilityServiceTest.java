@@ -41,7 +41,11 @@ class BookingAvailabilityServiceTest {
     void confirmsSlotWhenBusinessIsOpenAndNoBookingConflicts() {
         BookingAvailabilityService service = newService();
         givenBusinessIsOpen();
-        conflicts().thenReturn(List.of());
+        when(bookingRepository
+                .findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
+                        any(), any(), any(), any(), any()
+                ))
+                .thenReturn(List.of());
 
         AvailabilityResult result = service.check(
                 BUSINESS_ID,
@@ -64,7 +68,11 @@ class BookingAvailabilityServiceTest {
     void rejectsSlotWhenBookingConflicts() {
         BookingAvailabilityService service = newService();
         givenBusinessIsOpen();
-        conflicts().thenReturn(List.of(booking()));
+        when(bookingRepository
+                .findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
+                        any(), any(), any(), any(), any()
+                ))
+                .thenReturn(List.of(booking()));
 
         AvailabilityResult result = service.check(
                 BUSINESS_ID,
@@ -80,7 +88,11 @@ class BookingAvailabilityServiceTest {
     void cancelledBookingDoesNotBlockSlot() {
         BookingAvailabilityService service = newService();
         givenBusinessIsOpen();
-        conflicts().thenReturn(List.of());
+        when(bookingRepository
+                .findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
+                        any(), any(), any(), any(), any()
+                ))
+                .thenReturn(List.of());
 
         AvailabilityResult result = service.check(
                 BUSINESS_ID,
@@ -191,13 +203,6 @@ class BookingAvailabilityServiceTest {
                 .thenReturn(new AvailabilityResult(
                         AvailabilityStatus.CONFIRMED,
                         "Business is open."
-                ));
-    }
-
-    private org.mockito.stubbing.OngoingStubbing<List<BookingEntity>> conflicts() {
-        return when(bookingRepository
-                .findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
-                        any(), any(), any(), any(), any()
                 ));
     }
 
