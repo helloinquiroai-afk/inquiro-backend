@@ -1,7 +1,7 @@
 package com.inquiro.inquiry;
 
-import com.inquiro.booking.BookingResponse;
-import com.inquiro.tenant.TenantAuthorizationService;
+import com.inquiro.auth.TenantAuthorizationService;
+import com.inquiro.booking.BookingController.BookingResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -44,10 +44,10 @@ public class BusinessInquiryBookingController {
         );
     }
 
-    private void validateBusinessId(String businessId) {
-        if (businessId == null || businessId.isBlank()) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "Business ID is required");
+    private static void validateBusinessId(String businessId) {
+        if (businessId == null
+                || !businessId.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")) {
+            throw new IllegalArgumentException("Invalid business ID");
         }
     }
 
