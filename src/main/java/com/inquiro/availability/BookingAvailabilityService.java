@@ -32,10 +32,20 @@ public class BookingAvailabilityService {
         this.scheduleSource = scheduleSource;
     }
 
+    /**
+     * Checks both business operating hours and existing bookings.
+     * The businessId is supplied explicitly so tenant identity is not
+     * inferred from customer-controlled inquiry fields.
+     */
     public AvailabilityResult check(
+            String businessId,
             String service,
             Map<String, Object> fields,
             BusinessProfile businessProfile) {
+
+        if (businessId == null || businessId.isBlank()) {
+            return unknown("A business is required to check availability.");
+        }
 
         if (businessProfile == null) {
             return unknown("Business information is not available.");
@@ -67,7 +77,7 @@ public class BookingAvailabilityService {
         List<BookingEntity> conflicts =
                 bookingRepository
                         .findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
-                                businessId(fields),
+                                businessId,
                                 date,
                                 BLOCKING_STATUSES,
                                 endTime,
@@ -85,11 +95,6 @@ public class BookingAvailabilityService {
                 AvailabilityStatus.CONFIRMED,
                 "The requested time is available for booking."
         );
-    }
-
-    private String businessId(Map<String, Object> fields) {
-        String businessId = value(fields, "businessId");
-        return businessId == null ? "" : businessId;
     }
 
     private String value(Map<String, Object> fields, String key) {
