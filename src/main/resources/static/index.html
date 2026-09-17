@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inquiro — AI Receptionist</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">I</span><div><strong>inquiro</strong><small>AI receptionist</small></div></div>
+      <nav>
+        <button class="nav active">⌂ <span>Dashboard</span></button>
+        <button class="nav">◉ <span>Receptionist</span></button>
+        <button class="nav">▣ <span>Conversations</span></button>
+        <button class="nav">□ <span>Bookings</span></button>
+        <button class="nav">⚙ <span>Settings</span></button>
+      </nav>
+      <div class="sidebar-foot">Vorlent Labs<br><span>MVP preview</span></div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div><span class="eyebrow">BUSINESS WORKSPACE</span><h1>AI Receptionist</h1></div>
+        <div class="status"><i></i> Online</div>
+      </header>
+
+      <section class="content">
+        <div class="hero">
+          <div><span class="eyebrow">LIVE DEMO</span><h2>Talk to your receptionist</h2><p>Test a natural customer conversation. Inquiro keeps the conversation context between messages.</p></div>
+          <button id="newChat" class="secondary">＋ New conversation</button>
+        </div>
+
+        <div class="grid">
+          <section class="chat-card">
+            <div class="chat-head"><div class="avatar">I</div><div><strong>Inquiro Receptionist</strong><small>Website channel · AI enabled</small></div><span class="live-dot"></span></div>
+            <div id="messages" class="messages">
+              <div class="message bot">Hi! Welcome. How can I help you today?</div>
+            </div>
+            <div class="customer-fields">
+              <input id="customerName" placeholder="Customer name" maxlength="200" value="Demo Customer">
+              <input id="customerPhone" placeholder="Phone number" maxlength="50" value="0771234567">
+            </div>
+            <form id="chatForm" class="composer">
+              <input id="message" autocomplete="off" maxlength="10000" placeholder="e.g. I want a room tomorrow for 2 guests…">
+              <button id="send" type="submit">Send</button>
+            </form>
+            <div id="error" class="error"></div>
+          </section>
+
+          <aside class="info-card">
+            <div class="info-title">Conversation state</div>
+            <div class="metric"><span>Session</span><strong id="sessionLabel">New</strong></div>
+            <div class="metric"><span>Status</span><strong id="stateLabel">Ready</strong></div>
+            <div class="metric"><span>Missing information</span><strong id="missingLabel">—</strong></div>
+            <div class="tip"><strong>Try this</strong><br>“I need a room tomorrow.”<br>Then answer Inquiro's follow-up questions one at a time.</div>
+            <button id="clearChat" class="danger">Clear conversation</button>
+          </aside>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
