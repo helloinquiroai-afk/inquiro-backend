@@ -71,7 +71,7 @@ public class BookingController {
             BookingStatus status,
             LocalDateTime createdAt
     ) {
-        static BookingResponse from(BookingEntity booking) {
+        public static BookingResponse from(BookingEntity booking) {
             return new BookingResponse(
                     booking.getBookingId(),
                     booking.getBusinessId(),
