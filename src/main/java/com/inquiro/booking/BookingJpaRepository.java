@@ -15,6 +15,11 @@ public interface BookingJpaRepository
             List<BookingStatus> statuses
     );
 
+    List<BookingEntity> findByBusinessIdAndStatusIn(
+            String businessId,
+            List<BookingStatus> statuses
+    );
+
     List<BookingEntity> findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
             String businessId,
             LocalDate bookingDate,
