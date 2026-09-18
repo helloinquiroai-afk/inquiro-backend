@@ -1,5 +1,6 @@
 package com.inquiro.conversation;
 
+import com.inquiro.availability.AvailabilityService;
 import com.inquiro.ai.AiService;
 import com.inquiro.ai.ConversationIntentAnalysis;
 import com.inquiro.ai.FollowUpAnalysis;
