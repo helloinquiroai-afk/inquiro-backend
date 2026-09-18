@@ -22,7 +22,7 @@ import com.inquiro.inquiry.InquiryResult;
 import com.inquiro.inquiry.InquiryStatus;
 import com.inquiro.request.RequestDefinition;
 import com.inquiro.request.SlotFillingEngine;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -31,8 +31,48 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 public class ConversationService {
+
+    @Autowired
+    public ConversationService(
+            ConversationRepository conversationRepository,
+            InquiryOrchestrator inquiryOrchestrator,
+            AiService aiService,
+            SlotFillingEngine slotFillingEngine,
+            BusinessAccountRepository businessAccountRepository,
+            BusinessChannelRepository businessChannelRepository,
+            BusinessRequestService businessRequestService,
+            BusinessBoundaryService businessBoundaryService,
+            OnboardingService onboardingService,
+            BookingCreationService bookingCreationService) {
+        this.conversationRepository = conversationRepository;
+        this.inquiryOrchestrator = inquiryOrchestrator;
+        this.aiService = aiService;
+        this.slotFillingEngine = slotFillingEngine;
+        this.businessAccountRepository = businessAccountRepository;
+        this.businessChannelRepository = businessChannelRepository;
+        this.businessRequestService = businessRequestService;
+        this.businessBoundaryService = businessBoundaryService;
+        this.onboardingService = onboardingService;
+        this.bookingCreationService = bookingCreationService;
+    }
+
+    /** Compatibility constructor for existing unit tests and non-booking callers. */
+    public ConversationService(
+            ConversationRepository conversationRepository,
+            InquiryOrchestrator inquiryOrchestrator,
+            AiService aiService,
+            SlotFillingEngine slotFillingEngine,
+            BusinessAccountRepository businessAccountRepository,
+            BusinessChannelRepository businessChannelRepository,
+            AvailabilityService ignoredAvailabilityService,
+            BusinessRequestService businessRequestService,
+            BusinessBoundaryService businessBoundaryService,
+            OnboardingService onboardingService) {
+        this(conversationRepository, inquiryOrchestrator, aiService, slotFillingEngine,
+                businessAccountRepository, businessChannelRepository, businessRequestService,
+                businessBoundaryService, onboardingService, null);
+    }
     private static final String TIME = "time";
     private static final String CUSTOMER_NAME = "customerName";
     private static final String CUSTOMER_PHONE = "customerPhone";
