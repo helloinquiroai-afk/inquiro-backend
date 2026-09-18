@@ -4,8 +4,6 @@ import com.inquiro.ai.AiService;
 import com.inquiro.ai.ConversationIntentAnalysis;
 import com.inquiro.ai.FollowUpAnalysis;
 import com.inquiro.ai.RequestAnalysis;
-import com.inquiro.availability.AvailabilityResult;
-import com.inquiro.availability.AvailabilityService;
 import com.inquiro.business.BusinessAccount;
 import com.inquiro.business.BusinessAccountRepository;
 import com.inquiro.business.BusinessBoundaryService;
@@ -13,10 +11,11 @@ import com.inquiro.business.BusinessChannel;
 import com.inquiro.business.BusinessChannelRepository;
 import com.inquiro.business.BusinessChannelType;
 import com.inquiro.business.BusinessProfile;
-import com.inquiro.business.BusinessRequest;
 import com.inquiro.business.BusinessRequestService;
 import com.inquiro.business.onboarding.OnboardingService;
 import com.inquiro.business.onboarding.OnboardingSummary;
+import com.inquiro.booking.BookingCreationService;
+import com.inquiro.booking.BookingEntity;
 import com.inquiro.inquiry.InquiryOrchestrator;
 import com.inquiro.inquiry.InquiryResponse;
 import com.inquiro.inquiry.InquiryResult;
@@ -27,22 +26,27 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class ConversationService {
+    private static final String TIME = "time";
+    private static final String CUSTOMER_NAME = "customerName";
+    private static final String CUSTOMER_PHONE = "customerPhone";
+
     private final ConversationRepository conversationRepository;
     private final InquiryOrchestrator inquiryOrchestrator;
     private final AiService aiService;
     private final SlotFillingEngine slotFillingEngine;
     private final BusinessAccountRepository businessAccountRepository;
     private final BusinessChannelRepository businessChannelRepository;
-    private final AvailabilityService availabilityService;
     private final BusinessRequestService businessRequestService;
     private final BusinessBoundaryService businessBoundaryService;
     private final OnboardingService onboardingService;
+    private final BookingCreationService bookingCreationService;
 
     public InquiryResponse process(String sessionId, String externalChannelId) {
         return process(sessionId, BusinessChannelType.MESSENGER, externalChannelId, null);
@@ -56,10 +60,8 @@ public class ConversationService {
         BusinessChannel channel = businessChannelRepository.findByTypeAndExternalId(channelType, externalChannelId);
         if (channel == null) throw new IllegalStateException("No business channel configured for external ID: " + externalChannelId);
         if (!channel.enabled()) throw new IllegalStateException("Business channel is disabled: " + externalChannelId);
-
         BusinessAccount businessAccount = businessAccountRepository.findByBusinessId(channel.businessId());
         if (businessAccount == null) throw new IllegalStateException("No business configured for business ID: " + channel.businessId());
-
         OnboardingSummary onboarding = onboardingService.getOnboardingSummary(businessAccount.businessId());
         if (onboarding == null || !onboarding.readyForReceptionist()) throw new IllegalStateException("Business is not ready for receptionist");
 
@@ -69,13 +71,9 @@ public class ConversationService {
 
         if (session == null) {
             InquiryResponse response = inquiryOrchestrator.process(message, profile);
-            if (response.status() == InquiryStatus.NEEDS_INFORMATION) {
-                saveConversation(canonicalSessionId, response);
-                return response;
-            }
-            if (response.status() == InquiryStatus.INFORMATION_COLLECTED && isBusinessRequest(response.inquiry())) {
+            if (response.status() == InquiryStatus.NEEDS_INFORMATION) return saveConversation(canonicalSessionId, response, profile);
+            if (response.status() == InquiryStatus.INFORMATION_COLLECTED && isBusinessRequest(response.inquiry()))
                 return processCompletedRequest(businessAccount, canonicalSessionId, response.inquiry()).withKnowledgeReply(response.knowledgeReply());
-            }
             return response;
         }
 
@@ -89,13 +87,9 @@ public class ConversationService {
             InquiryResponse response = inquiryOrchestrator.process(message, profile);
             if (!isBusinessRequest(response.inquiry())) return response;
             conversationRepository.remove(canonicalSessionId);
-            if (response.status() == InquiryStatus.NEEDS_INFORMATION) {
-                saveConversation(canonicalSessionId, response);
-                return response;
-            }
-            if (response.status() == InquiryStatus.INFORMATION_COLLECTED) {
+            if (response.status() == InquiryStatus.NEEDS_INFORMATION) return saveConversation(canonicalSessionId, response, profile);
+            if (response.status() == InquiryStatus.INFORMATION_COLLECTED)
                 return processCompletedRequest(businessAccount, canonicalSessionId, response.inquiry()).withKnowledgeReply(response.knowledgeReply());
-            }
             return response;
         }
 
@@ -104,10 +98,12 @@ public class ConversationService {
         Map<String, Object> fields = EntityMerger.merge(session.getInquiry().fields(), replyAnalysis.entities());
         RequestAnalysis updatedAnalysis = new RequestAnalysis(session.getInquiry().service(), 1.0, fields);
         InquiryResult updatedInquiry = new InquiryResult(session.getInquiry().domain(), session.getInquiry().service(), fields);
-        List<String> missing = slotFillingEngine.findMissingSlots(updatedAnalysis, profile);
+        List<String> workflowMissing = slotFillingEngine.findMissingSlots(updatedAnalysis, profile);
+        List<String> missing = bookingMissingFields(updatedInquiry, workflowMissing);
 
         if (!missing.isEmpty()) {
-            conversationRepository.save(new ConversationSession(canonicalSessionId, updatedInquiry, missing, Instant.now()));
+            ConversationSession updatedSession = new ConversationSession(canonicalSessionId, updatedInquiry, missing, Instant.now());
+            conversationRepository.save(updatedSession);
             return new InquiryResponse(updatedInquiry, missing, InquiryStatus.NEEDS_INFORMATION, buildReply(missing, profile, updatedInquiry.service())).withKnowledgeReply(knowledgeReply);
         }
         return processCompletedRequest(businessAccount, canonicalSessionId, updatedInquiry).withKnowledgeReply(knowledgeReply);
@@ -115,6 +111,7 @@ public class ConversationService {
 
     private InquiryResponse processCompletedRequest(BusinessAccount businessAccount, String sessionId, InquiryResult inquiry) {
         if (!isBusinessRequest(inquiry)) return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED, "Thank you.");
+
         BusinessBoundaryService.BoundaryResult boundary = businessBoundaryService.check(inquiry.service(), businessAccount.profile());
         if (boundary.status() == BusinessBoundaryService.BoundaryStatus.REQUIRES_HUMAN) {
             businessRequestService.createForHumanReview(businessAccount.businessId(), sessionId, inquiry.service(), inquiry.fields());
@@ -125,14 +122,52 @@ public class ConversationService {
             conversationRepository.remove(sessionId);
             return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED, boundary.message());
         }
-        AvailabilityResult availability = availabilityService.checkAvailability(inquiry.service(), inquiry.fields(), businessAccount.profile());
-        businessRequestService.create(businessAccount.businessId(), sessionId, inquiry.service(), inquiry.fields(), availability.status());
-        conversationRepository.remove(sessionId);
-        return buildAvailabilityResponse(inquiry, availability);
+
+        String customerName = value(inquiry.fields(), CUSTOMER_NAME);
+        String customerPhone = value(inquiry.fields(), CUSTOMER_PHONE);
+        try {
+            BookingEntity booking = bookingCreationService.create(businessAccount.businessId(), inquiry.service(), inquiry.fields(), customerName, customerPhone);
+            conversationRepository.remove(sessionId);
+            return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
+                    "Your booking has been confirmed. Booking ID: " + booking.getBookingId() + ".", booking.getBookingId());
+        } catch (org.springframework.web.server.ResponseStatusException exception) {
+            conversationRepository.remove(sessionId);
+            throw exception;
+        }
     }
 
-    private void saveConversation(String sessionId, InquiryResponse response) {
-        conversationRepository.save(new ConversationSession(sessionId, response.inquiry(), response.missingFields(), Instant.now()));
+    private InquiryResponse saveConversation(String sessionId, InquiryResponse response, BusinessProfile profile) {
+        List<String> missing = bookingMissingFields(response.inquiry(), response.missingFields());
+        InquiryResponse updated = new InquiryResponse(response.inquiry(), missing, response.status(), response.reply(), response.knowledgeReply(), response.bookingId());
+        conversationRepository.save(new ConversationSession(sessionId, updated.inquiry(), updated.missingFields(), Instant.now()));
+        if (missing.equals(response.missingFields())) return response;
+        return new InquiryResponse(updated.inquiry(), missing, updated.status(), buildReply(missing, profile, updated.inquiry().service()), updated.knowledgeReply(), updated.bookingId());
+    }
+
+    private List<String> bookingMissingFields(InquiryResult inquiry, List<String> workflowMissing) {
+        List<String> missing = new ArrayList<>(workflowMissing == null ? List.of() : workflowMissing);
+        if (isBookableService(inquiry)) {
+            if (!containsField(inquiry, TIME)) missing.add(TIME);
+            if (!containsField(inquiry, CUSTOMER_NAME)) missing.add(CUSTOMER_NAME);
+            if (!containsField(inquiry, CUSTOMER_PHONE)) missing.add(CUSTOMER_PHONE);
+        }
+        return List.copyOf(missing);
+    }
+
+    private boolean containsField(InquiryResult inquiry, String field) {
+        return inquiry != null && inquiry.fields() != null && inquiry.fields().get(field) != null && !String.valueOf(inquiry.fields().get(field)).isBlank();
+    }
+
+    private boolean isBookableService(InquiryResult inquiry) {
+        return isBusinessRequest(inquiry);
+    }
+
+    private String value(Map<String, Object> fields, String key) {
+        if (fields == null) return null;
+        Object value = fields.get(key);
+        if (value == null) return null;
+        String text = String.valueOf(value).trim();
+        return text.isEmpty() ? null : text;
     }
 
     private boolean isBusinessRequest(InquiryResult inquiry) {
@@ -141,15 +176,15 @@ public class ConversationService {
         return !"UNKNOWN".equalsIgnoreCase(service) && !"GREETING".equalsIgnoreCase(service) && !"BUSINESS_QUESTION".equalsIgnoreCase(service);
     }
 
-    private InquiryResponse buildAvailabilityResponse(InquiryResult inquiry, AvailabilityResult availability) {
-        String reply = availability == null || availability.message() == null ? "Thank you. The business will confirm availability and contact you as soon as possible." : availability.message();
-        return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED, reply);
-    }
-
     private String buildReply(List<String> missingFields, BusinessProfile profile, String service) {
         String field = missingFields.get(0);
         RequestDefinition definition = profile.services().stream().filter(candidate -> candidate.requestType().equalsIgnoreCase(service)).findFirst().orElse(null);
         if (definition != null && definition.slotPrompts().containsKey(field)) return definition.slotPrompts().get(field);
-        return "Could you please provide " + field.replaceAll("([a-z])([A-Z])", "$1 $2").toLowerCase() + "?";
+        return switch (field) {
+            case TIME -> "What time would you like to book?";
+            case CUSTOMER_NAME -> "May I have your name?";
+            case CUSTOMER_PHONE -> "What phone number should we use for the booking?";
+            default -> "Could you please provide " + field.replaceAll("([a-z])([A-Z])", "$1 $2").toLowerCase() + "?";
+        };
     }
 }
