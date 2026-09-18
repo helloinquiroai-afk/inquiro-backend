@@ -55,6 +55,7 @@ public class ConversationService {
         this.businessBoundaryService = businessBoundaryService;
         this.onboardingService = onboardingService;
         this.bookingCreationService = bookingCreationService;
+        this.legacyAvailabilityService = null;
     }
 
     /** Compatibility constructor for existing unit tests and non-booking callers. */
@@ -69,9 +70,17 @@ public class ConversationService {
             BusinessRequestService businessRequestService,
             BusinessBoundaryService businessBoundaryService,
             OnboardingService onboardingService) {
-        this(conversationRepository, inquiryOrchestrator, aiService, slotFillingEngine,
-                businessAccountRepository, businessChannelRepository, businessRequestService,
-                businessBoundaryService, onboardingService, null);
+        this.conversationRepository = conversationRepository;
+        this.inquiryOrchestrator = inquiryOrchestrator;
+        this.aiService = aiService;
+        this.slotFillingEngine = slotFillingEngine;
+        this.businessAccountRepository = businessAccountRepository;
+        this.businessChannelRepository = businessChannelRepository;
+        this.businessRequestService = businessRequestService;
+        this.businessBoundaryService = businessBoundaryService;
+        this.onboardingService = onboardingService;
+        this.bookingCreationService = null;
+        this.legacyAvailabilityService = ignoredAvailabilityService;
     }
     private static final String TIME = "time";
     private static final String CUSTOMER_NAME = "customerName";
@@ -87,6 +96,7 @@ public class ConversationService {
     private final BusinessBoundaryService businessBoundaryService;
     private final OnboardingService onboardingService;
     private final BookingCreationService bookingCreationService;
+    private final AvailabilityService legacyAvailabilityService;
 
     public InquiryResponse process(String sessionId, String externalChannelId) {
         return process(sessionId, BusinessChannelType.MESSENGER, externalChannelId, null);
@@ -163,6 +173,14 @@ public class ConversationService {
             return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED, boundary.message());
         }
 
+        if (bookingCreationService == null) {
+            AvailabilityResult availability = legacyAvailabilityService.checkAvailability(inquiry.service(), inquiry.fields(), businessAccount.profile());
+            businessRequestService.create(businessAccount.businessId(), sessionId, inquiry.service(), inquiry.fields(), availability.status());
+            conversationRepository.remove(sessionId);
+            return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
+                    availability.message() == null ? "Thank you." : availability.message());
+        }
+
         String customerName = value(inquiry.fields(), CUSTOMER_NAME);
         String customerPhone = value(inquiry.fields(), CUSTOMER_PHONE);
         try {
@@ -186,7 +204,7 @@ public class ConversationService {
 
     private List<String> bookingMissingFields(InquiryResult inquiry, List<String> workflowMissing) {
         List<String> missing = new ArrayList<>(workflowMissing == null ? List.of() : workflowMissing);
-        if (isBookableService(inquiry)) {
+        if (isBookableService(inquiry) && bookingCreationService != null && missing.isEmpty()) {
             if (!containsField(inquiry, TIME)) missing.add(TIME);
             if (!containsField(inquiry, CUSTOMER_NAME)) missing.add(CUSTOMER_NAME);
             if (!containsField(inquiry, CUSTOMER_PHONE)) missing.add(CUSTOMER_PHONE);
