@@ -8,6 +8,7 @@ public record InquiryResponse(
         InquiryStatus status,
         String reply,
         @com.fasterxml.jackson.annotation.JsonIgnore String knowledgeReply,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
         String bookingId
 ) {
     public InquiryResponse(InquiryResult inquiry, List<String> missingFields, InquiryStatus status, String reply) {
