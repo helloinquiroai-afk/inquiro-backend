@@ -22,83 +22,60 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class BookingCreationService {
-
-    private static final DateTimeFormatter TIME_FORMAT =
-            DateTimeFormatter.ofPattern("H:mm");
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
 
     private final BusinessAccountRepository businessAccountRepository;
     private final BookingJpaRepository bookingRepository;
     private final BookingAvailabilityService availabilityService;
 
     @Transactional
-    public BookingEntity create(
-            String businessId,
-            String service,
-            Map<String, Object> fields,
-            String customerName,
-            String customerPhone) {
-
-        if (businessId == null || businessId.isBlank()) {
+    public BookingEntity create(String businessId, String service, Map<String, Object> fields,
+                                 String customerName, String customerPhone) {
+        if (businessId == null || businessId.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Business ID is required");
-        }
-
-        if (service == null || service.isBlank()) {
+        if (service == null || service.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Service is required");
-        }
-
-        if (customerName == null || customerName.isBlank()) {
+        if (customerName == null || customerName.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer name is required");
-        }
-
-        if (customerPhone == null || customerPhone.isBlank()) {
+        if (customerPhone == null || customerPhone.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer phone is required");
-        }
 
-        BusinessAccount business =
-                businessAccountRepository.findByBusinessIdForUpdate(businessId);
+        BusinessAccount business = businessAccountRepository.findByBusinessIdForUpdate(businessId);
+        if (business == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Business not found");
 
-        if (business == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Business not found");
-        }
-
-        AvailabilityResult availability =
-                availabilityService.check(
-                        businessId,
-                        service,
-                        fields,
-                        business.profile()
-                );
-
+        AvailabilityResult availability = availabilityService.check(businessId, service, fields, business.profile());
         if (availability.status() != AvailabilityStatus.CONFIRMED) {
             throw new ResponseStatusException(
-                    availability.status() == AvailabilityStatus.UNAVAILABLE
-                            ? HttpStatus.CONFLICT
-                            : HttpStatus.BAD_REQUEST,
-                    availability.message()
-            );
+                    availability.status() == AvailabilityStatus.UNAVAILABLE ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST,
+                    availability.message());
         }
 
-        LocalDate date = parseDate(value(fields, "date"));
+        LocalDate checkInDate = parseDate(firstValue(fields, "checkInDate", "date"));
         LocalTime startTime = parseTime(value(fields, "time"));
-        LocalTime endTime = parseTime(value(fields, "endTime"));
-
-        if (date == null || startTime == null) {
+        if (checkInDate == null || startTime == null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid date and time are required");
-        }
 
-        if (endTime == null) {
-            endTime = startTime.plusHours(1);
-        }
-
-        if (!startTime.isBefore(endTime)) {
+        LocalTime endTime = parseTime(value(fields, "endTime"));
+        if (endTime == null) endTime = startTime.plusHours(1);
+        if (!startTime.isBefore(endTime))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The requested end time must be after the start time");
+
+        LocalDate checkOutDate = null;
+        Integer durationNights = null;
+        if ("ROOM_BOOKING".equalsIgnoreCase(service)) {
+            durationNights = parsePositiveInt(fields, "durationNights");
+            if (durationNights == null)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid number of nights is required for a room booking");
+            checkOutDate = checkInDate.plusDays(durationNights);
         }
 
         BookingEntity booking = new BookingEntity(
                 "booking_" + UUID.randomUUID(),
                 businessId,
                 service,
-                date,
+                checkInDate,
+                checkOutDate,
+                durationNights,
                 startTime,
                 endTime,
                 customerName.trim(),
@@ -106,29 +83,34 @@ public class BookingCreationService {
                 BookingStatus.CONFIRMED,
                 LocalDateTime.now()
         );
-
         return bookingRepository.save(booking);
     }
 
+    private String firstValue(Map<String, Object> fields, String preferred, String fallback) {
+        String value = value(fields, preferred);
+        return value != null ? value : value(fields, fallback);
+    }
     private String value(Map<String, Object> fields, String key) {
-        if (fields == null) {
-            return null;
-        }
+        if (fields == null) return null;
         Object value = fields.get(key);
-        if (value == null) {
-            return null;
-        }
+        if (value == null) return null;
         String text = String.valueOf(value).trim();
         return text.isEmpty() ? null : text;
     }
-
-    private LocalDate parseDate(String value) {
-        if (value == null) {
+    private Integer parsePositiveInt(Map<String, Object> fields, String key) {
+        String value = value(fields, key);
+        if (value == null) return null;
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed > 0 ? parsed : null;
+        } catch (NumberFormatException ignored) {
             return null;
         }
-        try {
-            return LocalDate.parse(value);
-        } catch (DateTimeParseException ignored) {
+    }
+    private LocalDate parseDate(String value) {
+        if (value == null) return null;
+        try { return LocalDate.parse(value); }
+        catch (DateTimeParseException ignored) {
             return switch (value.toLowerCase()) {
                 case "today" -> LocalDate.now();
                 case "tomorrow" -> LocalDate.now().plusDays(1);
@@ -137,25 +119,17 @@ public class BookingCreationService {
             };
         }
     }
-
     private LocalTime parseTime(String value) {
-        if (value == null) {
-            return null;
-        }
+        if (value == null) return null;
         String normalized = value.trim().toLowerCase().replace(".", "");
         try {
-            if (normalized.matches("\\d{1,2}:\\d{2}")) {
+            if (normalized.matches("\\d{1,2}:\\d{2}"))
                 return LocalTime.parse(normalized, TIME_FORMAT);
-            }
-            if (normalized.matches("\\d{1,2}\\s*(am|pm)")) {
+            if (normalized.matches("\\d{1,2}\\s*(am|pm)"))
                 return LocalTime.parse(normalized.toUpperCase(), DateTimeFormatter.ofPattern("h a"));
-            }
-            if (normalized.matches("\\d{1,2}:\\d{2}\\s*(am|pm)")) {
+            if (normalized.matches("\\d{1,2}:\\d{2}\\s*(am|pm)"))
                 return LocalTime.parse(normalized.toUpperCase(), DateTimeFormatter.ofPattern("h:mm a"));
-            }
-        } catch (DateTimeParseException ignored) {
-            return null;
-        }
+        } catch (DateTimeParseException ignored) { return null; }
         return null;
     }
 }
