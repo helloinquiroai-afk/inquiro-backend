@@ -16,99 +16,97 @@ import java.util.Map;
 @Service
 public class BookingAvailabilityService {
 
-    private static final DateTimeFormatter TIME_FORMAT =
-            DateTimeFormatter.ofPattern("H:mm");
-
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
     private static final List<BookingStatus> BLOCKING_STATUSES =
             List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
 
     private final BookingJpaRepository bookingRepository;
     private final BusinessScheduleAvailabilitySource scheduleSource;
 
-    public BookingAvailabilityService(
-            BookingJpaRepository bookingRepository,
-            BusinessScheduleAvailabilitySource scheduleSource) {
+    public BookingAvailabilityService(BookingJpaRepository bookingRepository,
+                                       BusinessScheduleAvailabilitySource scheduleSource) {
         this.bookingRepository = bookingRepository;
         this.scheduleSource = scheduleSource;
     }
 
-    public AvailabilityResult check(
-            String businessId,
-            String service,
-            Map<String, Object> fields,
-            BusinessProfile businessProfile) {
+    public AvailabilityResult check(String businessId, String service,
+                                    Map<String, Object> fields,
+                                    BusinessProfile businessProfile) {
+        if (businessId == null || businessId.isBlank()) return unknown("Business ID is required to check booking availability.");
+        if (businessProfile == null) return unknown("Business information is not available.");
 
-        if (businessId == null || businessId.isBlank()) {
-            return unknown("Business ID is required to check booking availability.");
-        }
+        AvailabilityResult scheduleResult = scheduleSource.check(service, fields, businessProfile);
+        if (scheduleResult.status() != AvailabilityStatus.CONFIRMED) return scheduleResult;
 
-        if (businessProfile == null) {
-            return unknown("Business information is not available.");
-        }
-
-        AvailabilityResult scheduleResult =
-                scheduleSource.check(service, fields, businessProfile);
-
-        if (scheduleResult.status() != AvailabilityStatus.CONFIRMED) {
-            return scheduleResult;
-        }
-
-        LocalDate date = parseDate(value(fields, "date"));
+        LocalDate date = parseDate(firstValue(fields, "checkInDate", "date"));
         LocalTime startTime = parseTime(value(fields, "time"));
+        if (date == null || startTime == null) return unknown("A valid date and time are required to check booking availability.");
 
-        if (date == null || startTime == null) {
-            return unknown("A valid date and time are required to check booking availability.");
+        if ("ROOM_BOOKING".equalsIgnoreCase(service)) {
+            Integer nights = parsePositiveInt(fields, "durationNights");
+            if (nights == null) return unknown("A valid number of nights is required for a room booking.");
+
+            LocalDate checkOut = date.plusDays(nights);
+            List<BookingEntity> bookings = bookingRepository.findByBusinessIdAndStatusIn(businessId, BLOCKING_STATUSES);
+            for (BookingEntity booking : bookings) {
+                if (overlapsStay(date, checkOut, booking)) {
+                    return new AvailabilityResult(AvailabilityStatus.UNAVAILABLE,
+                            "The requested stay overlaps with an existing booking.");
+                }
+            }
+            return new AvailabilityResult(AvailabilityStatus.CONFIRMED,
+                    "The requested stay is available for booking.");
         }
 
         LocalTime endTime = parseTime(value(fields, "endTime"));
-        if (endTime == null) {
-            endTime = startTime.plusHours(1);
-        }
-
-        if (!startTime.isBefore(endTime)) {
-            return unknown("The requested end time must be after the start time.");
-        }
+        if (endTime == null) endTime = startTime.plusHours(1);
+        if (!startTime.isBefore(endTime)) return unknown("The requested end time must be after the start time.");
 
         List<BookingEntity> conflicts =
-                bookingRepository
-                        .findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
-                                businessId,
-                                date,
-                                BLOCKING_STATUSES,
-                                endTime,
-                                startTime
-                        );
-
+                bookingRepository.findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
+                        businessId, date, BLOCKING_STATUSES, endTime, startTime);
         if (!conflicts.isEmpty()) {
-            return new AvailabilityResult(
-                    AvailabilityStatus.UNAVAILABLE,
-                    "The requested time overlaps with an existing booking."
-            );
+            return new AvailabilityResult(AvailabilityStatus.UNAVAILABLE,
+                    "The requested time overlaps with an existing booking.");
         }
+        return new AvailabilityResult(AvailabilityStatus.CONFIRMED,
+                "The requested time is available for booking.");
+    }
 
-        return new AvailabilityResult(
-                AvailabilityStatus.CONFIRMED,
-                "The requested time is available for booking."
-        );
+    private boolean overlapsStay(LocalDate requestedCheckIn, LocalDate requestedCheckOut, BookingEntity existing) {
+        LocalDate existingCheckIn = existing.getBookingDate();
+        LocalDate existingCheckOut = existing.getCheckOutDate();
+        if (existingCheckOut == null) existingCheckOut = existingCheckIn.plusDays(1);
+        return requestedCheckIn.isBefore(existingCheckOut)
+                && existingCheckIn.isBefore(requestedCheckOut);
+    }
+
+    private String firstValue(Map<String, Object> fields, String preferred, String fallback) {
+        String value = value(fields, preferred);
+        return value != null ? value : value(fields, fallback);
+    }
+
+    private Integer parsePositiveInt(Map<String, Object> fields, String key) {
+        String value = value(fields, key);
+        if (value == null) return null;
+        try {
+            int parsed = Integer.parseInt(value);
+            return parsed > 0 ? parsed : null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private String value(Map<String, Object> fields, String key) {
-        if (fields == null) {
-            return null;
-        }
+        if (fields == null) return null;
         Object value = fields.get(key);
-        if (value == null) {
-            return null;
-        }
+        if (value == null) return null;
         String text = String.valueOf(value).trim();
         return text.isEmpty() ? null : text;
     }
 
     private LocalDate parseDate(String value) {
-        if (value == null) {
-            return null;
-        }
-
+        if (value == null) return null;
         try {
             return LocalDate.parse(value);
         } catch (DateTimeParseException ignored) {
@@ -122,37 +120,18 @@ public class BookingAvailabilityService {
     }
 
     private LocalTime parseTime(String value) {
-        if (value == null) {
-            return null;
-        }
-
-        String normalized = value
-                .trim()
-                .toLowerCase()
-                .replace(".", "");
-
+        if (value == null) return null;
+        String normalized = value.trim().toLowerCase().replace(".", "");
         try {
-            if (normalized.matches("\\d{1,2}:\\d{2}")) {
+            if (normalized.matches("\\d{1,2}:\\d{2}"))
                 return LocalTime.parse(normalized, TIME_FORMAT);
-            }
-
-            if (normalized.matches("\\d{1,2}\\s*(am|pm)")) {
-                return LocalTime.parse(
-                        normalized.toUpperCase(),
-                        DateTimeFormatter.ofPattern("h a")
-                );
-            }
-
-            if (normalized.matches("\\d{1,2}:\\d{2}\\s*(am|pm)")) {
-                return LocalTime.parse(
-                        normalized.toUpperCase(),
-                        DateTimeFormatter.ofPattern("h:mm a")
-                );
-            }
+            if (normalized.matches("\\d{1,2}\\s*(am|pm)"))
+                return LocalTime.parse(normalized.toUpperCase(), DateTimeFormatter.ofPattern("h a"));
+            if (normalized.matches("\\d{1,2}:\\d{2}\\s*(am|pm)"))
+                return LocalTime.parse(normalized.toUpperCase(), DateTimeFormatter.ofPattern("h:mm a"));
         } catch (DateTimeParseException ignored) {
             return null;
         }
-
         return null;
     }
 
