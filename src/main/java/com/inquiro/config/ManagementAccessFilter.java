@@ -43,6 +43,8 @@ public class ManagementAccessFilter extends OncePerRequestFilter {
     private boolean isProtectedManagementPath(String path) {
         return path.equals("/api/test")
                 || path.startsWith("/api/test/")
+                || path.equals("/api/knowledge")
+                || path.startsWith("/api/knowledge/")
                 || path.equals("/h2-console")
                 || path.startsWith("/h2-console/");
     }
@@ -51,6 +53,8 @@ public class ManagementAccessFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         return path.equals("/api/test")
                 || path.startsWith("/api/test/")
+                || path.equals("/api/knowledge")
+                || path.startsWith("/api/knowledge/")
                 || path.equals("/h2-console")
                 || path.startsWith("/h2-console/");
     }
