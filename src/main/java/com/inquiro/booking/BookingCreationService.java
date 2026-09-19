@@ -143,6 +143,30 @@ public class BookingCreationService {
     }
 
 
+
+    @Transactional
+    public BookingEntity createHold(
+            String businessId,
+            String service,
+            Map<String, Object> fields,
+            String customerName,
+            String customerPhone,
+            String idempotencyKey,
+            int holdMinutes) {
+        if (holdMinutes < 1 || holdMinutes > 1440) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hold duration must be between 1 and 1440 minutes");
+        }
+        BookingEntity booking = create(
+                businessId, service, fields, customerName, customerPhone,
+                idempotencyKey == null ? null : "hold:" + idempotencyKey);
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            booking.setStatus(BookingStatus.HOLD);
+            booking.setHoldExpiresAt(LocalDateTime.now().plusMinutes(holdMinutes));
+            booking = bookingRepository.save(booking);
+        }
+        return booking;
+    }
+
     @Transactional
     public BookingEntity cancel(String bookingId, String businessId) {
         BookingEntity booking = bookingRepository.findById(bookingId)
