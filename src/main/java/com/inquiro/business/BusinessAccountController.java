@@ -95,6 +95,27 @@ public class BusinessAccountController {
         return summary;
     }
 
+    @GetMapping("/{businessId}/onboarding/steps")
+    public List<com.inquiro.business.onboarding.OnboardingStep> getOnboardingSteps(
+            @PathVariable String businessId) {
+
+        validateBusinessId(businessId);
+        tenantAuthorization.requireBusinessAccess(businessId);
+
+        List<com.inquiro.business.onboarding.OnboardingStep> steps =
+                onboardingService.getOnboardingSteps(businessId);
+
+        if (steps.isEmpty()
+                && onboardingService.getOnboardingSummary(businessId) == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Business not found"
+            );
+        }
+
+        return steps;
+    }
+
     /**
      * Replace the onboarding configuration.
      *
