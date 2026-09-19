@@ -47,7 +47,7 @@ public class BookingAvailabilityService {
         }
 
         RequestDefinition definition = definitionFor(service, businessProfile);
-        BookingAvailabilityStrategy strategy = strategyRegistry.strategyFor(definition);
+        BookingAvailabilityStrategy strategy = strategyRegistry.strategyFor(definition, fields);
 
         if (strategy == null) {
             return unknown("No availability strategy is configured for service " + service + ".");
