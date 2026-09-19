@@ -114,6 +114,60 @@ class AuthAndTenantSecurityTest {
                 .andExpect(status().isUnauthorized());
     }
 
+
+    @Test
+    void adminCanUpdateTenantDataButCannotManageMemberships() throws Exception {
+        String ownerToken = registerAndLogin("write-owner@inquiro.test");
+        String businessResponse = mvc.perform(post("/api/business/accounts")
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"businessName\":\"Write Hotel\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String businessId = mapper.readTree(businessResponse).path("businessId").asText();
+
+        registerAndLogin("write-admin@inquiro.test");
+        mvc.perform(post("/api/business/accounts/{businessId}/members", businessId)
+                        .header("Authorization", "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"write-admin@inquiro.test\"}"))
+                .andExpect(status().isCreated());
+
+        String adminToken = loginOnly("write-admin@inquiro.test");
+        mvc.perform(put("/api/business/accounts/{businessId}/profile", businessId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"businessName\":\"Write Hotel Updated\",\"businessType\":\"HOSPITALITY\",\"description\":\"updated\",\"services\":[],\"knowledge\":null}"))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/business/accounts/{businessId}/members", businessId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void unauthenticatedUnknownRoutesAreDenied() throws Exception {
+        mvc.perform(get("/definitely-not-a-public-endpoint"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void managementKeyDoesNotBypassTenantBusinessEndpoints() throws Exception {
+        mvc.perform(get("/api/business/accounts/biz_001/onboarding")
+                        .header("X-Inquiro-Management-Key", "test-management-key"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private String loginOnly(String email) throws Exception {
+        String login = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"correct horse battery staple"}
+                                """.formatted(email)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return mapper.readTree(login).path("accessToken").asText();
+    }
+
     private String registerAndLogin(String email) throws Exception {
         mvc.perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content("""
