@@ -62,6 +62,7 @@ public class ConversationService {
         this.bookingCreationService = bookingCreationService;
         this.requestActionHandlerRegistry = requestActionHandlerRegistry;
         this.legacyAvailabilityService = null;
+        this.businessContextResolver = new BusinessContextResolver();
     }
 
     /** Compatibility constructor for existing unit tests and non-booking callers. */
@@ -88,6 +89,7 @@ public class ConversationService {
         this.bookingCreationService = null;
         this.requestActionHandlerRegistry = null;
         this.legacyAvailabilityService = ignoredAvailabilityService;
+        this.businessContextResolver = new BusinessContextResolver();
     }
     private static final String TIME = "time";
     private static final String CUSTOMER_NAME = "customerName";
@@ -105,6 +107,7 @@ public class ConversationService {
     private final BookingCreationService bookingCreationService;
     private final RequestActionHandlerRegistry requestActionHandlerRegistry;
     private final AvailabilityService legacyAvailabilityService;
+    private final BusinessContextResolver businessContextResolver;
 
     public InquiryResponse process(String sessionId, String externalChannelId) {
         return process(sessionId, BusinessChannelType.MESSENGER, externalChannelId, null);
@@ -160,6 +163,8 @@ public class ConversationService {
         String knowledgeReply = inquiryOrchestrator.answerKnowledgeQuestions(intent.knowledgeQuestions(), profile);
         FollowUpAnalysis replyAnalysis = aiService.analyzeFollowUp(session.getInquiry().service(), session.getInquiry().fields(), session.getMissingFields(), message);
         Map<String, Object> fields = EntityMerger.merge(session.getInquiry().fields(), replyAnalysis.entities());
+        RequestDefinition definition = definitionFor(session.getInquiry(), profile);
+        fields = businessContextResolver.resolve(definition, fields, profile);
         RequestAnalysis updatedAnalysis = new RequestAnalysis(session.getInquiry().service(), 1.0, fields);
         InquiryResult updatedInquiry = new InquiryResult(session.getInquiry().domain(), session.getInquiry().service(), fields);
         List<String> missing = slotFillingEngine.findMissingSlots(updatedAnalysis, profile);
