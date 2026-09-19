@@ -39,7 +39,7 @@ public class BusinessKnowledgeController {
 
     @PostMapping("/faq-suggestions/review")
     public ReviewResponse review(@PathVariable String businessId, @Valid @RequestBody ReviewRequest request) {
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
         var knowledge = service.review(businessId, request.decision(), request.suggestion());
         return new ReviewResponse(request.decision(), knowledge);
     }
