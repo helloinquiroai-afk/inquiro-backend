@@ -5,6 +5,8 @@ import com.inquiro.booking.BookingEntity;
 import com.inquiro.booking.BookingJpaRepository;
 import com.inquiro.booking.BookingStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.inquiro.booking.BookingInventoryService;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
