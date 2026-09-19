@@ -13,14 +13,13 @@ import com.inquiro.business.BusinessQuestionService;
 import com.inquiro.conversation.BusinessContextResolver;
 import com.inquiro.request.RequestDefinition;
 import com.inquiro.request.SlotFillingEngine;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 public class InquiryOrchestrator {
 
     private final AiService aiService;
@@ -31,6 +30,39 @@ public class InquiryOrchestrator {
     private final AvailabilityService availabilityService;
     private final BusinessBoundaryService businessBoundaryService;
     private final BusinessContextResolver businessContextResolver;
+
+    @Autowired
+    public InquiryOrchestrator(
+            AiService aiService,
+            SlotFillingEngine slotFillingEngine,
+            RequestAnalysisValidator validator,
+            BusinessProfileProvider businessProfileProvider,
+            BusinessQuestionService businessQuestionService,
+            AvailabilityService availabilityService,
+            BusinessBoundaryService businessBoundaryService,
+            BusinessContextResolver businessContextResolver) {
+        this.aiService = aiService;
+        this.slotFillingEngine = slotFillingEngine;
+        this.validator = validator;
+        this.businessProfileProvider = businessProfileProvider;
+        this.businessQuestionService = businessQuestionService;
+        this.availabilityService = availabilityService;
+        this.businessBoundaryService = businessBoundaryService;
+        this.businessContextResolver = businessContextResolver;
+    }
+
+    public InquiryOrchestrator(
+            AiService aiService,
+            SlotFillingEngine slotFillingEngine,
+            RequestAnalysisValidator validator,
+            BusinessProfileProvider businessProfileProvider,
+            BusinessQuestionService businessQuestionService,
+            AvailabilityService availabilityService,
+            BusinessBoundaryService businessBoundaryService) {
+        this(aiService, slotFillingEngine, validator, businessProfileProvider,
+                businessQuestionService, availabilityService, businessBoundaryService,
+                new BusinessContextResolver());
+    }
 
     public InquiryResponse process(String message) {
 
