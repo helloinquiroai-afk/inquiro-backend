@@ -4,6 +4,7 @@ import com.inquiro.business.BusinessProfile;
 import com.inquiro.booking.BookingJpaRepository;
 import com.inquiro.request.RequestDefinition;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Map;
 
@@ -12,6 +13,7 @@ public class BookingAvailabilityService {
 
     private final BookingAvailabilityStrategyRegistry strategyRegistry;
 
+    @Autowired
     public BookingAvailabilityService(
             BookingJpaRepository bookingRepository,
             BusinessScheduleAvailabilitySource scheduleSource,
