@@ -141,6 +141,12 @@ public class ConversationService {
             return new InquiryResponse(session.getInquiry(), session.getMissingFields(), InquiryStatus.NEEDS_INFORMATION, answer);
         }
 
+        if ("GENERAL_QUESTION".equalsIgnoreCase(intent.intent())) {
+            String question = intent.knowledgeQuestions().isEmpty() ? message : intent.knowledgeQuestions().get(0);
+            String answer = aiService.answerGeneralQuestion(question);
+            return new InquiryResponse(session.getInquiry(), session.getMissingFields(), InquiryStatus.NEEDS_INFORMATION, answer);
+        }
+
         if ("NEW_REQUEST".equalsIgnoreCase(intent.intent())) {
             InquiryResponse response = inquiryOrchestrator.process(message, profile);
             if (!isBusinessRequest(response.inquiry())) return response;
