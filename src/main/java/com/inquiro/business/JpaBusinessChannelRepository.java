@@ -38,6 +38,12 @@ public class JpaBusinessChannelRepository
 
 
     @Override
+    public List<BusinessChannel> findByType(BusinessChannelType type) {
+        if (type == null) return List.of();
+        return jpaRepository.findByType(type.name()).stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public List<BusinessChannel> findByBusinessId(
             String businessId) {
 

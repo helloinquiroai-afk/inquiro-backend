@@ -17,6 +17,7 @@ public class BusinessChannelController {
 
     private final BusinessChannelRepository businessChannelRepository;
     private final TenantAuthorizationService tenantAuthorization;
+    private final ChannelCredentialService channelCredentials;
 
 
     /*
@@ -139,8 +140,56 @@ public class BusinessChannelController {
         return updated;
     }
 
-    public record UpdateBusinessChannelRequest(Boolean enabled) {
+    public record UpdateBusinessChannelRequest(Boolean enabled) {}
+
+    @PutMapping("/{channelId}/credentials")
+    public CredentialStatus replaceCredentials(
+            @PathVariable String businessId,
+            @PathVariable String channelId,
+            @RequestBody CredentialRequest request) {
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
+        validateBusinessExists(businessId);
+        BusinessChannel channel = businessChannelRepository.findByBusinessId(businessId).stream()
+                .filter(item -> item != null && channelId.equals(item.channelId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId));
+        if (channel.type() != BusinessChannelType.MESSENGER) {
+            throw new IllegalArgumentException("Credentials are currently supported for Messenger channels only");
+        }
+        if (request == null) throw new IllegalArgumentException("Request cannot be null");
+        channelCredentials.save(channelId, request.pageAccessToken(), request.appSecret(), request.verifyToken());
+        return new CredentialStatus(true);
     }
+
+    @DeleteMapping("/{channelId}/credentials")
+    public CredentialStatus revokeCredentials(
+            @PathVariable String businessId,
+            @PathVariable String channelId) {
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
+        validateBusinessExists(businessId);
+        BusinessChannel channel = businessChannelRepository.findByBusinessId(businessId).stream()
+                .filter(item -> item != null && channelId.equals(item.channelId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId));
+        channelCredentials.delete(channelId);
+        return new CredentialStatus(false);
+    }
+
+    @GetMapping("/{channelId}/credentials")
+    public CredentialStatus credentialStatus(
+            @PathVariable String businessId,
+            @PathVariable String channelId) {
+        tenantAuthorization.requireBusinessAccess(businessId);
+        validateBusinessExists(businessId);
+        if (businessChannelRepository.findByBusinessId(businessId).stream()
+                .noneMatch(item -> item != null && channelId.equals(item.channelId()))) {
+            throw new IllegalArgumentException("Channel not found: " + channelId);
+        }
+        return new CredentialStatus(channelCredentials.hasCredentials(channelId));
+    }
+
+    public record CredentialRequest(String pageAccessToken, String appSecret, String verifyToken) {}
+    public record CredentialStatus(boolean configured) {}
 
 
     /*

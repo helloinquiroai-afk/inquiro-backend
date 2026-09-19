@@ -33,6 +33,10 @@ public interface BusinessChannelRepository {
             String businessId
     );
 
+    default List<BusinessChannel> findByType(BusinessChannelType type) {
+        return List.of();
+    }
+
     void save(
             BusinessChannel channel
     );

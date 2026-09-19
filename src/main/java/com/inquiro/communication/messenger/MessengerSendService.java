@@ -1,6 +1,7 @@
 package com.inquiro.communication.messenger;
 
 import com.inquiro.config.MessengerProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.time.Duration;
 import java.util.Map;
 import org.springframework.http.HttpHeaders;
@@ -13,11 +14,13 @@ import org.springframework.web.client.RestClient;
 @Service
 public class MessengerSendService {
     private final MessengerProperties properties;
+    private final MessengerCredentialResolver credentials;
     private final RestClient client;
 
-    @org.springframework.beans.factory.annotation.Autowired
-    public MessengerSendService(MessengerProperties properties, RestClient.Builder builder) {
+    @Autowired
+    public MessengerSendService(MessengerProperties properties, MessengerCredentialResolver credentials, RestClient.Builder builder) {
         this.properties = properties;
+        this.credentials = credentials;
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(properties.getConnectTimeoutSeconds()));
         factory.setReadTimeout(Duration.ofSeconds(properties.getReadTimeoutSeconds()));
@@ -26,11 +29,17 @@ public class MessengerSendService {
 
     MessengerSendService(MessengerProperties properties, RestClient client) {
         this.properties = properties;
+        this.credentials = null;
         this.client = client;
     }
 
     public boolean supportsPage(String pageId) {
-        return pageId != null && pageId.matches("[0-9]{1,64}") && pageId.equals(properties.getPageId())
+        if (pageId == null || !pageId.matches("[0-9]{1,64}")) return false;
+        if (credentials != null) {
+            var configured = credentials.forPage(pageId);
+            return configured != null && configured.accessToken() != null && !configured.accessToken().isBlank();
+        }
+        return pageId.equals(properties.getPageId())
                 && properties.getPageAccessToken() != null && !properties.getPageAccessToken().isBlank();
     }
 
@@ -54,6 +63,7 @@ public class MessengerSendService {
 
     private void post(String pageId, String recipientId, Map<String, Object> body) {
         if (!supportsPage(pageId)) throw new IllegalStateException("Messenger Page credentials are not configured");
+        String accessToken = credentials == null ? properties.getPageAccessToken() : credentials.forPage(pageId).accessToken();
         if (recipientId == null || !recipientId.matches("[0-9]{1,64}")) {
             throw new IllegalArgumentException("Invalid Messenger recipient");
         }
@@ -61,7 +71,7 @@ public class MessengerSendService {
             throw new IllegalStateException("Invalid Graph API version configuration");
         }
         client.post().uri("/{version}/{page}/messages", properties.getGraphApiVersion(), pageId)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getPageAccessToken())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
                 .contentType(MediaType.APPLICATION_JSON).body(body).retrieve().toBodilessEntity();
     }
 }
