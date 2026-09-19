@@ -54,9 +54,9 @@ class CoreEngineConfigurationTest {
 
                 Booking: required
 
-                Service | Available | Requirements
-                CAR_SERVICE | yes | vehicleNumber, serviceType
-                PARTS_SALES | yes | partNumber
+                Service,Available,Requirements
+                CAR_SERVICE,yes,vehicleNumber, serviceType
+                PARTS_SALES,yes,partNumber
                 """;
 
         BusinessProfile profile = new BusinessKnowledgeExtractor().extract(
@@ -81,8 +81,8 @@ class CoreEngineConfigurationTest {
                 Services:
                 - ROOM_BOOKING
 
-                Service | Available | Requirements
-                ROOM_BOOKING | yes | checkInDate, durationNights, guestCount
+                Service,Available,Requirements
+                ROOM_BOOKING,yes,checkInDate, durationNights, guestCount
                 """;
 
         BusinessProfile profile = new BusinessKnowledgeExtractor().extract(
