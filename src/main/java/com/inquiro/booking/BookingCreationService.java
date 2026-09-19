@@ -83,46 +83,20 @@ public class BookingCreationService {
                     availability.message());
         }
 
-        LocalDate bookingDate = parseDate(firstValue(fields, "checkInDate", "date"));
-        Integer durationNights = parsePositiveInt(fields, "durationNights");
-        boolean dateRange = durationNights != null
-                || hasAny(fields, "checkInDate", "checkOutDate");
-
-        LocalTime startTime = parseTime(value(fields, "time"));
-        if (dateRange && startTime == null) {
-            startTime = DATE_RANGE_START;
-        }
-        if (bookingDate == null || startTime == null) {
+        AvailabilityResult.BookingPeriod period = availability.period();
+        if (period == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    dateRange
-                            ? "A valid check-in date and duration are required"
-                            : "A valid date and time are required");
+                    "Availability did not return a normalized booking period");
         }
 
-        LocalTime endTime = parseTime(value(fields, "endTime"));
-        if (dateRange && endTime == null) {
-            endTime = DATE_RANGE_END;
-        }
-        if (endTime == null) {
-            endTime = startTime.plusHours(1);
-        }
-        if (!startTime.isBefore(endTime)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "The requested end time must be after the start time");
-        }
-
-        LocalDate checkOutDate = durationNights == null ? null : bookingDate.plusDays(durationNights);
-        if (checkOutDate == null) {
-            String checkOutValue = value(fields, "checkOutDate");
-            checkOutDate = parseDate(checkOutValue);
-            if (checkOutDate != null && !bookingDate.isBefore(checkOutDate)) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Check-out date must be after check-in date");
-            }
-        }
+        LocalDate bookingDate = period.startDate();
+        LocalDate checkOutDate = period.endDate();
+        Integer durationNights = checkOutDate == null
+                ? null
+                : Math.toIntExact(java.time.temporal.ChronoUnit.DAYS.between(bookingDate, checkOutDate));
+        LocalTime startTime = period.startTime();
+        LocalTime endTime = period.endTime();
 
         BookingEntity booking = new BookingEntity(
                 "booking_" + UUID.randomUUID(),
@@ -185,65 +159,6 @@ public class BookingCreationService {
         return bookingRepository.save(booking);
     }
 
-    private boolean hasAny(Map<String, Object> fields, String... keys) {
-        if (fields == null) return false;
-        for (String key : keys) {
-            if (value(fields, key) != null) return true;
-        }
-        return false;
-    }
+    
 
-    private String firstValue(Map<String, Object> fields, String preferred, String fallback) {
-        String value = value(fields, preferred);
-        return value != null ? value : value(fields, fallback);
-    }
-
-    private String value(Map<String, Object> fields, String key) {
-        if (fields == null) return null;
-        Object value = fields.get(key);
-        if (value == null) return null;
-        String text = String.valueOf(value).trim();
-        return text.isEmpty() ? null : text;
-    }
-
-    private Integer parsePositiveInt(Map<String, Object> fields, String key) {
-        String value = value(fields, key);
-        if (value == null) return null;
-        try {
-            int parsed = Integer.parseInt(value);
-            return parsed > 0 ? parsed : null;
-        } catch (NumberFormatException ignored) {
-            return null;
-        }
-    }
-
-    private LocalDate parseDate(String value) {
-        if (value == null) return null;
-        try {
-            return LocalDate.parse(value);
-        } catch (DateTimeParseException ignored) {
-            return switch (value.toLowerCase()) {
-                case "today" -> LocalDate.now();
-                case "tomorrow" -> LocalDate.now().plusDays(1);
-                case "day after tomorrow" -> LocalDate.now().plusDays(2);
-                default -> null;
-            };
-        }
-    }
-
-    private LocalTime parseTime(String value) {
-        if (value == null) return null;
-        String normalized = value.trim().toLowerCase().replace(".", "");
-        try {
-            if (normalized.matches("\\d{1,2}:\\d{2}"))
-                return LocalTime.parse(normalized, TIME_FORMAT);
-            if (normalized.matches("\\d{1,2}\\s*(am|pm)"))
-                return LocalTime.parse(normalized.toUpperCase(), DateTimeFormatter.ofPattern("h a"));
-            if (normalized.matches("\\d{1,2}:\\d{2}\\s*(am|pm)"))
-                return LocalTime.parse(normalized.toUpperCase(), DateTimeFormatter.ofPattern("h:mm a"));
-        } catch (DateTimeParseException ignored) {
-            return null;
-        }
-        return null;
-    }
 }
