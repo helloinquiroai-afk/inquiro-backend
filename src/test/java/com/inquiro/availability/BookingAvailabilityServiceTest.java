@@ -1,6 +1,8 @@
 package com.inquiro.availability;
 
 import com.inquiro.business.BusinessProfile;
+import com.inquiro.request.RequestActionType;
+import com.inquiro.request.RequestDefinition;
 import com.inquiro.booking.BookingEntity;
 import com.inquiro.booking.BookingJpaRepository;
 import com.inquiro.booking.BookingStatus;
@@ -189,9 +191,8 @@ class BookingAvailabilityServiceTest {
                 BUSINESS_ID,
                 "ROOM_BOOKING",
                 Map.of(
-                        "checkInDate", DATE.toString(),
-                        "durationNights", 2,
-                        "time", "14:00"
+                        "arrival", DATE.toString(),
+                        "departure", DATE.plusDays(2).toString()
                 ),
                 hotelProfile()
         );
@@ -228,9 +229,8 @@ class BookingAvailabilityServiceTest {
                 BUSINESS_ID,
                 "ROOM_BOOKING",
                 Map.of(
-                        "checkInDate", DATE.toString(),
-                        "durationNights", 3,
-                        "time", "14:00"
+                        "arrival", DATE.toString(),
+                        "departure", DATE.plusDays(3).toString()
                 ),
                 hotelProfile()
         );
@@ -243,7 +243,19 @@ class BookingAvailabilityServiceTest {
                 "Test Hotel",
                 "HOSPITALITY",
                 "Hotel",
-                List.of(),
+                List.of(new RequestDefinition(
+                        "ROOM_BOOKING",
+                        "Book a room",
+                        List.of("arrival", "departure"),
+                        Map.of(),
+                        RequestActionType.BOOKING,
+                        List.of("arrival", "departure"),
+                        "DATE_RANGE",
+                        Map.of(
+                                "startDate", "arrival",
+                                "endDate", "departure"
+                        )
+                )),
                 new com.inquiro.business.BusinessKnowledge(
                         "Hotel",
                         List.of("ROOM_BOOKING"),
