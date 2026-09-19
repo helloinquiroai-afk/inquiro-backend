@@ -149,7 +149,7 @@ class AuthAndTenantSecurityTest {
     @Test
     void unauthenticatedUnknownRoutesAreDenied() throws Exception {
         mvc.perform(get("/definitely-not-a-public-endpoint"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
