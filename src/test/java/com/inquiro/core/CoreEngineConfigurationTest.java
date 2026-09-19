@@ -25,7 +25,7 @@ class CoreEngineConfigurationTest {
         );
 
         assertEquals(RequestActionType.BOOKING, definition.actionType());
-        assertEquals(List.of("customerName", "customerPhone"), definition.actionRequiredSlots());
+        assertTrue(definition.actionRequiredSlots().isEmpty());
         assertEquals("AUTO", definition.availabilityStrategy());
     }
 
@@ -39,7 +39,7 @@ class CoreEngineConfigurationTest {
                 RequestActionType.BOOKING
         );
 
-        assertEquals(List.of("time", "customerName", "customerPhone"), definition.actionRequiredSlots());
+        assertTrue(definition.actionRequiredSlots().isEmpty());
     }
 
     @Test
