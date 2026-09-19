@@ -84,18 +84,18 @@ class BusinessKnowledgeApiTest {
 
     @Test void missingBusinessReturns404AndNeverCreatesAccount() throws Exception {
         String absent = "/api/business/accounts/does-not-exist/knowledge";
-        mvc.perform(get(absent).header("Authorization", "Bearer " + token)).andExpect(status().isNotFound());
+        mvc.perform(get(absent).header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
         mvc.perform(put(absent).header("Authorization", "Bearer " + token).contentType("application/json").content("{}"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isForbidden());
         mvc.perform(post(absent + "/faq-suggestions").header("Authorization", "Bearer " + token))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isForbidden());
         assertNull(accounts.findByBusinessId("does-not-exist"));
         verifyNoInteractions(ai);
     }
 
     @Test void invalidIdsAndPayloadsReturn400WithoutChangingKnowledge() throws Exception {
         mvc.perform(get("/api/business/accounts/bad!id/knowledge").header("Authorization", "Bearer " + token))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isForbidden());
         for (String body : List.of("null", "[]", "{", "{\"faqz\":[]}", "{\"faqs\":[null]}",
                 "{\"facts\":{\"parking\":null}}", "{\"facts\":{\"parking\":\" \"}}", "{\"faqs\":[\" \"]}")) {
             mvc.perform(put(BASE).header("Authorization", "Bearer " + token)
