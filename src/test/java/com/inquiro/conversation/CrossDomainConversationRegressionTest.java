@@ -79,7 +79,7 @@ class CrossDomainConversationRegressionTest {
         when(channels.findByTypeAndExternalId(any(), anyString())).thenAnswer(invocation ->
                 new BusinessChannel(
                         "channel-" + invocation.getArgument(1),
-                        invocation.getArgument(1),
+                        "biz-" + String.valueOf(invocation.getArgument(1)).replaceFirst("^website-", ""),
                         invocation.getArgument(0),
                         invocation.getArgument(1),
                         true
