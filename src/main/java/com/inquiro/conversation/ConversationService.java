@@ -144,6 +144,29 @@ public class ConversationService {
             return new InquiryResponse(session.getInquiry(), session.getMissingFields(), InquiryStatus.NEEDS_INFORMATION, answer);
         }
 
+        if ("OFF_TOPIC".equalsIgnoreCase(intent.intent())) {
+            return new InquiryResponse(
+                    session.getInquiry(),
+                    session.getMissingFields(),
+                    InquiryStatus.NEEDS_INFORMATION,
+                    buildBusinessScopeReply(profile, session.getInquiry().service())
+            );
+        }
+
+        if ("NEEDS_CLARIFICATION".equalsIgnoreCase(intent.intent())) {
+            String clarification = aiService.clarifyCustomerQuestion(
+                    message,
+                    session.getInquiry().service(),
+                    session.getMissingFields()
+            );
+            return new InquiryResponse(
+                    session.getInquiry(),
+                    session.getMissingFields(),
+                    InquiryStatus.NEEDS_INFORMATION,
+                    clarification
+            );
+        }
+
         if ("GENERAL_QUESTION".equalsIgnoreCase(intent.intent())) {
             String question = intent.knowledgeQuestions().isEmpty() ? message : intent.knowledgeQuestions().get(0);
             String answer = aiService.answerGeneralQuestion(question);
@@ -277,6 +300,25 @@ public class ConversationService {
         if (inquiry == null || inquiry.service() == null || inquiry.service().isBlank()) return false;
         String service = inquiry.service();
         return !"UNKNOWN".equalsIgnoreCase(service) && !"GREETING".equalsIgnoreCase(service) && !"BUSINESS_QUESTION".equalsIgnoreCase(service);
+    }
+
+    private String buildBusinessScopeReply(BusinessProfile profile, String service) {
+        String businessName = profile.businessName();
+        String next = buildReply(
+                sessionMissingPlaceholder(profile, service),
+                profile,
+                service
+        );
+        return "I’m here to help with " + businessName + " and its configured services. " + next;
+    }
+
+    private List<String> sessionMissingPlaceholder(BusinessProfile profile, String service) {
+        // This helper is replaced at the call site with the active session's missing fields.
+        return profile.services().stream()
+                .filter(candidate -> candidate.requestType().equalsIgnoreCase(service))
+                .findFirst()
+                .map(RequestDefinition::requiredSlots)
+                .orElse(List.of());
     }
 
     private String buildReply(List<String> missingFields, BusinessProfile profile, String service) {
