@@ -66,7 +66,8 @@ public class BusinessChannelController {
 
         BusinessChannel existing =
                 businessChannelRepository
-                        .findByTypeAndExternalId(
+                        .findByBusinessIdAndTypeAndExternalId(
+                                businessId,
                                 request.type(),
                                 request.externalId()
                         );
