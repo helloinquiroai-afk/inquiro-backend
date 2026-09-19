@@ -4,9 +4,10 @@ import com.inquiro.business.BusinessProfile;
 import com.inquiro.booking.BookingEntity;
 import com.inquiro.booking.BookingJpaRepository;
 import com.inquiro.booking.BookingStatus;
-import org.springframework.stereotype.Component;
-import org.springframework.beans.factory.annotation.Autowired;
 import com.inquiro.booking.BookingInventoryService;
+import com.inquiro.request.RequestDefinition;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -23,7 +24,7 @@ public class TimeSlotBookingAvailabilityStrategy extends AbstractBookingAvailabi
     public TimeSlotBookingAvailabilityStrategy(
             BookingJpaRepository bookingRepository,
             BusinessScheduleAvailabilitySource scheduleSource,
-            com.inquiro.booking.BookingInventoryService inventoryService) {
+            BookingInventoryService inventoryService) {
         super(bookingRepository, scheduleSource, inventoryService);
     }
 
@@ -43,20 +44,25 @@ public class TimeSlotBookingAvailabilityStrategy extends AbstractBookingAvailabi
             String businessId,
             String service,
             Map<String, Object> fields,
-            BusinessProfile businessProfile) {
+            BusinessProfile businessProfile,
+            RequestDefinition definition) {
 
-        AvailabilityResult schedule = checkSchedule(service, fields, businessProfile);
-        if (schedule.status() != AvailabilityStatus.CONFIRMED) {
-            return schedule;
-        }
+        Map<String, Object> mapped = mapFields(fields, definition, Map.of(
+                "date", "date",
+                "startTime", "time",
+                "endTime", "endTime"
+        ));
 
-        LocalDate date = parseDate(firstValue(fields, "date", "checkInDate"));
-        LocalTime startTime = parseTime(value(fields, "time"));
+        AvailabilityResult schedule = checkSchedule(service, mapped, businessProfile);
+        if (schedule.status() != AvailabilityStatus.CONFIRMED) return schedule;
+
+        LocalDate date = parseDate(value(mapped, "date"));
+        LocalTime startTime = parseTime(value(mapped, "startTime"));
         if (date == null || startTime == null) {
-            return unknown("A valid date and time are required to check booking availability.");
+            return unknown("A valid booking date and start time are required.");
         }
 
-        LocalTime endTime = parseTime(value(fields, "endTime"));
+        LocalTime endTime = parseTime(value(mapped, "endTime"));
         if (endTime == null) endTime = startTime.plusHours(1);
         if (!startTime.isBefore(endTime)) {
             return unknown("The requested end time must be after the start time.");
@@ -64,12 +70,7 @@ public class TimeSlotBookingAvailabilityStrategy extends AbstractBookingAvailabi
 
         List<BookingEntity> conflicts =
                 bookingRepository.findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
-                        businessId,
-                        date,
-                        BLOCKING_STATUSES,
-                        endTime,
-                        startTime
-                );
+                        businessId, date, BLOCKING_STATUSES, endTime, startTime);
 
         int capacity = capacityFor(businessId, service);
         if (capacity < 1) return unknown("No booking inventory is configured for this service.");
@@ -82,7 +83,8 @@ public class TimeSlotBookingAvailabilityStrategy extends AbstractBookingAvailabi
 
         return new AvailabilityResult(
                 AvailabilityStatus.CONFIRMED,
-                "The requested time is available for booking."
+                "The requested time is available for booking.",
+                new AvailabilityResult.BookingPeriod(date, null, startTime, endTime)
         );
     }
 }
