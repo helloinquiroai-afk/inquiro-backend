@@ -200,7 +200,7 @@ class BookingAvailabilityServiceTest {
         assertEquals(AvailabilityStatus.CONFIRMED, result.status());
         verify(bookingRepository).findByBusinessIdAndStatusIn(
                 eq(BUSINESS_ID),
-                eq(List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED))
+                eq(List.of(BookingStatus.PENDING, BookingStatus.HOLD, BookingStatus.CONFIRMED))
         );
     }
 
