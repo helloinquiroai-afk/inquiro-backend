@@ -53,6 +53,6 @@ public class RequestActionHandlerRegistry {
         if (definition.actionRequiredSlots() != null && !definition.actionRequiredSlots().isEmpty()) {
             return definition.actionRequiredSlots();
         }
-        return List.of("time", "customerName", "customerPhone");
+        return List.of();
     }
 }
