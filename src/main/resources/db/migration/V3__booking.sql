@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS booking (
     end_time TIME NOT NULL,
     customer_name VARCHAR(200),
     customer_phone VARCHAR(50),
+    idempotency_key VARCHAR(200) UNIQUE,
+    hold_expires_at TIMESTAMP,
     status VARCHAR(32) NOT NULL,
     created_at TIMESTAMP NOT NULL,
     CONSTRAINT fk_booking_business
@@ -20,6 +22,9 @@ CREATE INDEX IF NOT EXISTS idx_booking_business_datetime
 
 CREATE INDEX IF NOT EXISTS idx_booking_business_dates
     ON booking (business_id, booking_date, check_out_date);
+
+CREATE INDEX IF NOT EXISTS idx_booking_idempotency
+    ON booking (idempotency_key);
 
 CREATE INDEX IF NOT EXISTS idx_booking_business_status
     ON booking (business_id, status);
