@@ -47,4 +47,6 @@ public interface AiService {
     );
 
     String answerGeneralQuestion(String customerQuestion);
+
+    String clarifyCustomerQuestion(String customerQuestion, String currentService, List<String> missingFields);
 }
