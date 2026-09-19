@@ -25,7 +25,7 @@ public class BusinessKnowledgeController {
     @PutMapping
     public BusinessKnowledge replace(@PathVariable String businessId, @RequestBody com.fasterxml.jackson.databind.JsonNode request)
             throws com.fasterxml.jackson.core.JsonProcessingException {
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
         BusinessKnowledge knowledge = mapper.readerFor(BusinessKnowledge.class)
                 .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).readValue(request.toString());
         return service.replace(businessId, knowledge);
