@@ -58,7 +58,7 @@ class BookingAvailabilityServiceTest {
         verify(bookingRepository).findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
                 eq(BUSINESS_ID),
                 eq(DATE),
-                eq(List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED)),
+                eq(List.of(BookingStatus.PENDING, BookingStatus.HOLD, BookingStatus.CONFIRMED)),
                 eq(END),
                 eq(START)
         );
