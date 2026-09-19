@@ -740,3 +740,55 @@ public class BusinessKnowledgeExtractor {
                 .toUpperCase(Locale.ROOT)
                 .replaceAll("[^A-Z0-9]+", "_")
                 .replaceAll("^_+|_+$", "");
+    }
+
+    private String normalizeKey(
+            String value) {
+
+        return value == null
+                ? ""
+                : value.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "");
+    }
+
+    private String humanize(
+            String field) {
+
+        return field.replaceAll(
+                        "([a-z])([A-Z])",
+                        "$1 $2"
+                )
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private record ServiceRow(
+            String name,
+            boolean available,
+            List<String> requirements
+    ) {
+    }
+
+    private static final class ParsedKnowledge {
+
+        private final Map<String, String> values =
+                new LinkedHashMap<>();
+
+        private final Map<String, List<String>> sections =
+                new LinkedHashMap<>();
+
+        private final List<ServiceRow> serviceRows =
+                new ArrayList<>();
+
+        Map<String, String> values() {
+            return values;
+        }
+
+        Map<String, List<String>> sections() {
+            return sections;
+        }
+
+        List<ServiceRow> serviceRows() {
+            return serviceRows;
+        }
+    }
+}
