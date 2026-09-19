@@ -17,7 +17,7 @@ import java.util.Map;
 public class DateRangeBookingAvailabilityStrategy extends AbstractBookingAvailabilityStrategy {
 
     private static final List<BookingStatus> BLOCKING_STATUSES =
-            List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
+            List.of(BookingStatus.PENDING, BookingStatus.HOLD, BookingStatus.CONFIRMED);
 
     @Autowired
     public DateRangeBookingAvailabilityStrategy(
