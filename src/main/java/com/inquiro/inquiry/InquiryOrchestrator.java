@@ -388,7 +388,7 @@ if (boundary.message() != null) {
 AvailabilityResult availability =
                 availabilityService.checkAvailability(
                         analysis.intent(),
-                        analysis.entities(),
+                        resolvedAnalysis.entities(),
                         businessProfile
                 );
 
