@@ -33,15 +33,27 @@ public class BookingAvailabilityStrategyRegistry {
             RequestDefinition definition,
             Map<String, Object> fields) {
 
-        BookingAvailabilityStrategy configured = strategyFor(definition);
-        if (configured != null) {
-            return configured;
+        if (definition != null
+                && definition.availabilityStrategy() != null
+                && !"AUTO".equalsIgnoreCase(definition.availabilityStrategy())) {
+            BookingAvailabilityStrategy configured = strategyFor(definition);
+            if (configured != null) {
+                return configured;
+            }
         }
 
         if (fields != null &&
                 (fields.containsKey("durationNights")
                         || fields.containsKey("checkOutDate")
                         || fields.containsKey("checkInDate"))) {
+            return strategyFor("DATE_RANGE");
+        }
+
+        if (definition != null && definition.requiredSlots() != null
+                && definition.requiredSlots().stream().anyMatch(slot ->
+                "checkInDate".equalsIgnoreCase(slot)
+                        || "checkOutDate".equalsIgnoreCase(slot)
+                        || "durationNights".equalsIgnoreCase(slot))) {
             return strategyFor("DATE_RANGE");
         }
 
