@@ -10,6 +10,7 @@ import com.inquiro.business.BusinessBoundaryService;
 import com.inquiro.business.BusinessProfile;
 import com.inquiro.business.BusinessProfileProvider;
 import com.inquiro.business.BusinessQuestionService;
+import com.inquiro.conversation.BusinessContextResolver;
 import com.inquiro.request.RequestDefinition;
 import com.inquiro.request.SlotFillingEngine;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ public class InquiryOrchestrator {
     private final BusinessQuestionService businessQuestionService;
     private final AvailabilityService availabilityService;
     private final BusinessBoundaryService businessBoundaryService;
+    private final BusinessContextResolver businessContextResolver;
 
     public InquiryResponse process(String message) {
 
@@ -268,9 +270,27 @@ if (boundary.message() != null) {
          * =========================================================
          */
 
+        RequestDefinition definition = businessProfile.services().stream()
+                .filter(candidate -> candidate.requestType().equalsIgnoreCase(analysis.intent()))
+                .findFirst()
+                .orElse(null);
+
+        Map<String, Object> resolvedFields = businessContextResolver.resolve(
+                definition,
+                analysis.entities(),
+                businessProfile
+        );
+
+        RequestAnalysis resolvedAnalysis = new RequestAnalysis(
+                analysis.intent(),
+                analysis.confidence(),
+                resolvedFields,
+                analysis.knowledgeQuestions()
+        );
+
         List<String> missing =
                 slotFillingEngine.findMissingSlots(
-                        analysis,
+                        resolvedAnalysis,
                         businessProfile
                 );
 
@@ -284,7 +304,7 @@ if (boundary.message() != null) {
                 new InquiryResult(
                         businessProfile.businessType(),
                         analysis.intent(),
-                        analysis.entities()
+                        resolvedAnalysis.entities()
                 );
 
         /*
