@@ -4,6 +4,7 @@ import com.inquiro.config.MessengerProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/messenger/webhook")
 @Slf4j
 public class MessengerWebhookController {
+    @Autowired
     public MessengerWebhookController(MessengerProperties properties, MessengerMessageProcessor processor,
             MetaSignatureValidator signatures, MessengerCredentialResolver credentialResolver, ObjectMapper mapper) {
         this.properties = properties;
