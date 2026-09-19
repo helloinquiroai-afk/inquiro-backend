@@ -23,6 +23,7 @@ import com.inquiro.inquiry.InquiryResponse;
 import com.inquiro.inquiry.InquiryResult;
 import com.inquiro.inquiry.InquiryStatus;
 import com.inquiro.request.RequestDefinition;
+import com.inquiro.request.RequestActionType;
 import com.inquiro.request.SlotFillingEngine;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -150,8 +151,10 @@ public class ConversationService {
         Map<String, Object> fields = EntityMerger.merge(session.getInquiry().fields(), replyAnalysis.entities());
         RequestAnalysis updatedAnalysis = new RequestAnalysis(session.getInquiry().service(), 1.0, fields);
         InquiryResult updatedInquiry = new InquiryResult(session.getInquiry().domain(), session.getInquiry().service(), fields);
-        List<String> workflowMissing = slotFillingEngine.findMissingSlots(updatedAnalysis, profile);
-        List<String> missing = bookingMissingFields(updatedInquiry, workflowMissing);
+        List<String> missing = slotFillingEngine.findMissingSlots(updatedAnalysis, profile);
+        if (missing.isEmpty()) {
+            missing = actionRequiredFields(updatedInquiry, profile);
+        }
 
         if (!missing.isEmpty()) {
             ConversationSession updatedSession = new ConversationSession(canonicalSessionId, updatedInquiry, missing, Instant.now());
@@ -173,6 +176,30 @@ public class ConversationService {
         if (boundary.status() == BusinessBoundaryService.BoundaryStatus.NOT_SUPPORTED) {
             conversationRepository.remove(sessionId);
             return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED, boundary.message());
+        }
+
+        RequestDefinition definition = definitionFor(inquiry, businessAccount.profile());
+        if (definition == null) {
+            conversationRepository.remove(sessionId);
+            return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
+                    "Your request has been received.");
+        }
+
+        if (definition.actionType() == RequestActionType.HUMAN_REVIEW) {
+            businessRequestService.createForHumanReview(
+                    businessAccount.businessId(), sessionId, inquiry.service(), inquiry.fields());
+            conversationRepository.remove(sessionId);
+            return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
+                    "Your request has been received and will be reviewed by the business.");
+        }
+
+        if (definition.actionType() != RequestActionType.BOOKING) {
+            businessRequestService.create(
+                    businessAccount.businessId(), sessionId, inquiry.service(), inquiry.fields(),
+                    com.inquiro.availability.AvailabilityStatus.UNKNOWN);
+            conversationRepository.remove(sessionId);
+            return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
+                    "Your request has been received.");
         }
 
         if (bookingCreationService == null) {
@@ -197,21 +224,35 @@ public class ConversationService {
     }
 
     private InquiryResponse saveConversation(String sessionId, InquiryResponse response, BusinessProfile profile) {
-        List<String> missing = bookingMissingFields(response.inquiry(), response.missingFields());
+        List<String> missing = new ArrayList<>(response.missingFields() == null ? List.of() : response.missingFields());
+        if (missing.isEmpty()) {
+            missing = actionRequiredFields(response.inquiry(), profile);
+        }
         InquiryResponse updated = new InquiryResponse(response.inquiry(), missing, response.status(), response.reply(), response.knowledgeReply(), response.bookingId());
         conversationRepository.save(new ConversationSession(sessionId, updated.inquiry(), updated.missingFields(), Instant.now()));
         if (missing.equals(response.missingFields())) return response;
         return new InquiryResponse(updated.inquiry(), missing, updated.status(), buildReply(missing, profile, updated.inquiry().service()), updated.knowledgeReply(), updated.bookingId());
     }
 
-    private List<String> bookingMissingFields(InquiryResult inquiry, List<String> workflowMissing) {
-        List<String> missing = new ArrayList<>(workflowMissing == null ? List.of() : workflowMissing);
-        if (isBookableService(inquiry) && bookingCreationService != null && missing.isEmpty()) {
-            if (!containsField(inquiry, TIME)) missing.add(TIME);
-            if (!containsField(inquiry, CUSTOMER_NAME)) missing.add(CUSTOMER_NAME);
-            if (!containsField(inquiry, CUSTOMER_PHONE)) missing.add(CUSTOMER_PHONE);
+    private List<String> actionRequiredFields(InquiryResult inquiry, BusinessProfile profile) {
+        RequestDefinition definition = definitionFor(inquiry, profile);
+        if (definition == null || definition.actionType() != RequestActionType.BOOKING) {
+            return List.of();
         }
+
+        List<String> missing = new ArrayList<>();
+        if (!containsField(inquiry, TIME)) missing.add(TIME);
+        if (!containsField(inquiry, CUSTOMER_NAME)) missing.add(CUSTOMER_NAME);
+        if (!containsField(inquiry, CUSTOMER_PHONE)) missing.add(CUSTOMER_PHONE);
         return List.copyOf(missing);
+    }
+
+    private RequestDefinition definitionFor(InquiryResult inquiry, BusinessProfile profile) {
+        if (inquiry == null || profile == null || profile.services() == null) return null;
+        return profile.services().stream()
+                .filter(definition -> definition.requestType().equalsIgnoreCase(inquiry.service()))
+                .findFirst()
+                .orElse(null);
     }
 
     private boolean containsField(InquiryResult inquiry, String field) {
