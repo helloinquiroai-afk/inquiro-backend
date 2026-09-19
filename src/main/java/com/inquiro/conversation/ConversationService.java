@@ -170,14 +170,14 @@ public class ConversationService {
         if ("GENERAL_QUESTION".equalsIgnoreCase(intent.intent())) {
             String question = intent.knowledgeQuestions().isEmpty() ? message : intent.knowledgeQuestions().get(0);
             String answer = aiService.answerGeneralQuestion(question);
-            String next = session.getMissingFields().isEmpty()
-                    ? ""
-                    : " " + buildReply(session.getMissingFields(), profile, session.getInquiry().service());
+            // Answer the side question only. The unfinished request remains persisted
+            // and its missing fields are returned unchanged, but we do not append the
+            // next booking question to the general answer.
             return new InquiryResponse(
                     session.getInquiry(),
                     session.getMissingFields(),
                     InquiryStatus.NEEDS_INFORMATION,
-                    answer + next
+                    answer
             );
         }
 
