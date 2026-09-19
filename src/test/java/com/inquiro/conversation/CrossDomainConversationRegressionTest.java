@@ -76,14 +76,16 @@ class CrossDomainConversationRegressionTest {
         );
 
         when(conversations.find(anyString())).thenReturn(null);
-        when(channels.findByTypeAndExternalId(any(), anyString())).thenAnswer(invocation ->
-                new BusinessChannel(
-                        "channel-" + invocation.getArgument(1),
-                        "biz-" + String.valueOf(invocation.getArgument(1)).replaceFirst("^website-", ""),
-                        invocation.getArgument(0),
-                        invocation.getArgument(1),
-                        true
-                ));
+        when(channels.findByTypeAndExternalId(any(), anyString())).thenAnswer(invocation -> {
+            String externalId = (String) invocation.getArgument(1);
+            return new BusinessChannel(
+                    "channel-" + externalId,
+                    "biz-" + externalId.replaceFirst("^website-", ""),
+                    invocation.getArgument(0),
+                    externalId,
+                    true
+            );
+        });
     }
 
     static Stream<DomainScenario> domains() {
