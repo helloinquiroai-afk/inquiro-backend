@@ -227,9 +227,8 @@ class CrossDomainConversationRegressionTest {
         } else {
             assertEquals("Your request has been received.", response.reply());
             verify(businessRequests).create(
-                    account.businessId(),
-                    response.inquiry().service().equals(scenario.service())
-                            ? anyString() : anyString(),
+                    eq(account.businessId()),
+                    anyString(),
                     eq(scenario.service()),
                     eq(scenario.fields()),
                     any()
@@ -299,6 +298,8 @@ class CrossDomainConversationRegressionTest {
         );
 
         ConversationService service = conversationService();
+        when(slotFillingEngine.findMissingSlots(any(RequestAnalysis.class), eq(profile)))
+                .thenReturn(List.of());
 
         InquiryResponse first = service.process(
                 SESSION, BusinessChannelType.WEBSITE, "website-progressive", "I need a room in Paris");
