@@ -50,9 +50,9 @@ public class BookingCreationService {
                     availability.message());
         }
 
-        LocalDate checkInDate = parseDate(firstValue(fields, "checkInDate", "date"));
+        LocalDate bookingDate = parseDate(firstValue(fields, "checkInDate", "date"));
         LocalTime startTime = parseTime(value(fields, "time"));
-        if (checkInDate == null || startTime == null)
+        if (bookingDate == null || startTime == null)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid date and time are required");
 
         LocalTime endTime = parseTime(value(fields, "endTime"));
@@ -60,20 +60,14 @@ public class BookingCreationService {
         if (!startTime.isBefore(endTime))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The requested end time must be after the start time");
 
-        LocalDate checkOutDate = null;
-        Integer durationNights = null;
-        if ("ROOM_BOOKING".equalsIgnoreCase(service)) {
-            durationNights = parsePositiveInt(fields, "durationNights");
-            if (durationNights == null)
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A valid number of nights is required for a room booking");
-            checkOutDate = checkInDate.plusDays(durationNights);
-        }
+        Integer durationNights = parsePositiveInt(fields, "durationNights");
+        LocalDate checkOutDate = durationNights == null ? null : bookingDate.plusDays(durationNights);
 
         BookingEntity booking = new BookingEntity(
                 "booking_" + UUID.randomUUID(),
                 businessId,
                 service,
-                checkInDate,
+                bookingDate,
                 checkOutDate,
                 durationNights,
                 startTime,
@@ -90,6 +84,7 @@ public class BookingCreationService {
         String value = value(fields, preferred);
         return value != null ? value : value(fields, fallback);
     }
+
     private String value(Map<String, Object> fields, String key) {
         if (fields == null) return null;
         Object value = fields.get(key);
@@ -97,6 +92,7 @@ public class BookingCreationService {
         String text = String.valueOf(value).trim();
         return text.isEmpty() ? null : text;
     }
+
     private Integer parsePositiveInt(Map<String, Object> fields, String key) {
         String value = value(fields, key);
         if (value == null) return null;
@@ -107,10 +103,12 @@ public class BookingCreationService {
             return null;
         }
     }
+
     private LocalDate parseDate(String value) {
         if (value == null) return null;
-        try { return LocalDate.parse(value); }
-        catch (DateTimeParseException ignored) {
+        try {
+            return LocalDate.parse(value);
+        } catch (DateTimeParseException ignored) {
             return switch (value.toLowerCase()) {
                 case "today" -> LocalDate.now();
                 case "tomorrow" -> LocalDate.now().plusDays(1);
@@ -119,6 +117,7 @@ public class BookingCreationService {
             };
         }
     }
+
     private LocalTime parseTime(String value) {
         if (value == null) return null;
         String normalized = value.trim().toLowerCase().replace(".", "");
@@ -129,7 +128,9 @@ public class BookingCreationService {
                 return LocalTime.parse(normalized.toUpperCase(), DateTimeFormatter.ofPattern("h a"));
             if (normalized.matches("\\d{1,2}:\\d{2}\\s*(am|pm)"))
                 return LocalTime.parse(normalized.toUpperCase(), DateTimeFormatter.ofPattern("h:mm a"));
-        } catch (DateTimeParseException ignored) { return null; }
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
         return null;
     }
 }
