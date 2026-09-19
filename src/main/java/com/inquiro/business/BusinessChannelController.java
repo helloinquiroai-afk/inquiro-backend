@@ -101,6 +101,48 @@ public class BusinessChannelController {
     }
 
 
+    @PutMapping("/{channelId}")
+    public BusinessChannel updateChannel(
+            @PathVariable String businessId,
+            @PathVariable String channelId,
+            @RequestBody UpdateBusinessChannelRequest request) {
+
+        tenantAuthorization.requireBusinessAccess(businessId);
+        validateBusinessExists(businessId);
+
+        if (channelId == null || channelId.isBlank()) {
+            throw new IllegalArgumentException("Channel ID cannot be blank");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Request cannot be null");
+        }
+
+        BusinessChannel existing = businessChannelRepository
+                .findByBusinessId(businessId)
+                .stream()
+                .filter(channel -> channel != null && channelId.equals(channel.channelId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Channel not found: " + channelId));
+
+        BusinessChannel updated = new BusinessChannel(
+                existing.channelId(),
+                existing.businessId(),
+                existing.type(),
+                existing.externalId(),
+                request.enabled() == null
+                        ? existing.enabled()
+                        : request.enabled()
+        );
+
+        businessChannelRepository.save(updated);
+        return updated;
+    }
+
+    public record UpdateBusinessChannelRequest(Boolean enabled) {
+    }
+
+
     /*
      * =========================================================
      * VALIDATE BUSINESS
