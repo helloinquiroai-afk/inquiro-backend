@@ -65,7 +65,7 @@ public final class ConversationIntentPrompt {
                 Customer message:
                 "%s"
                 
-                Classify the customer message as FOLLOW_UP, NEW_REQUEST, BUSINESS_QUESTION, or GENERAL_QUESTION.
+                Classify the customer message as FOLLOW_UP, NEW_REQUEST, BUSINESS_QUESTION, GENERAL_QUESTION, NEEDS_CLARIFICATION, or OFF_TOPIC.
                 
                 FOLLOW_UP means the customer is providing information related to the current service
                 or answering one of the missing fields.
@@ -103,6 +103,22 @@ public final class ConversationIntentPrompt {
                 
                 {
                   "intent": "GENERAL_QUESTION",
+                  "confidence": 0.0,
+                  "knowledgeQuestions": []
+                }
+
+                or:
+
+                {
+                  "intent": "NEEDS_CLARIFICATION",
+                  "confidence": 0.0,
+                  "knowledgeQuestions": []
+                }
+
+                or:
+
+                {
+                  "intent": "OFF_TOPIC",
                   "confidence": 0.0,
                   "knowledgeQuestions": []
                 }
