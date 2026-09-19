@@ -16,4 +16,6 @@ public interface BusinessChannelJpaRepository
     List<BusinessChannelEntity> findByBusinessId(
             String businessId
     );
+
+    List<BusinessChannelEntity> findByType(String type);
 }
