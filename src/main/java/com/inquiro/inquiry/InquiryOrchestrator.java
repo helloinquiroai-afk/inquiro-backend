@@ -164,6 +164,39 @@ public class InquiryOrchestrator {
          * general knowledge. They are not treated as business
          * requests and do not create an inquiry workflow.
          */
+        if ("OFF_TOPIC".equalsIgnoreCase(analysis.intent())) {
+            InquiryResult inquiry = new InquiryResult(
+                    businessProfile.businessType(),
+                    analysis.intent(),
+                    analysis.entities()
+            );
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.NEEDS_INFORMATION,
+                    "I’m here to help with " + businessProfile.businessName()
+                            + " and its configured services. How can I help you?"
+            );
+        }
+
+        if ("NEEDS_CLARIFICATION".equalsIgnoreCase(analysis.intent())) {
+            String clarification = aiService.clarifyCustomerQuestion(
+                    message,
+                    null,
+                    List.of()
+            );
+            return new InquiryResponse(
+                    new InquiryResult(
+                            businessProfile.businessType(),
+                            analysis.intent(),
+                            analysis.entities()
+                    ),
+                    List.of(),
+                    InquiryStatus.NEEDS_CLARIFICATION,
+                    clarification
+            );
+        }
+
         if ("GENERAL_QUESTION".equalsIgnoreCase(analysis.intent())) {
             String question = analysis.knowledgeQuestions().isEmpty()
                     ? message
