@@ -23,6 +23,7 @@ import com.inquiro.inquiry.InquiryResponse;
 import com.inquiro.inquiry.InquiryResult;
 import com.inquiro.inquiry.InquiryStatus;
 import com.inquiro.request.RequestDefinition;
+import com.inquiro.request.RequestActionHandlerRegistry;
 import com.inquiro.request.RequestActionType;
 import com.inquiro.request.SlotFillingEngine;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,7 +48,8 @@ public class ConversationService {
             BusinessRequestService businessRequestService,
             BusinessBoundaryService businessBoundaryService,
             OnboardingService onboardingService,
-            BookingCreationService bookingCreationService) {
+            BookingCreationService bookingCreationService,
+            RequestActionHandlerRegistry requestActionHandlerRegistry) {
         this.conversationRepository = conversationRepository;
         this.inquiryOrchestrator = inquiryOrchestrator;
         this.aiService = aiService;
@@ -58,6 +60,7 @@ public class ConversationService {
         this.businessBoundaryService = businessBoundaryService;
         this.onboardingService = onboardingService;
         this.bookingCreationService = bookingCreationService;
+        this.requestActionHandlerRegistry = requestActionHandlerRegistry;
         this.legacyAvailabilityService = null;
     }
 
@@ -83,6 +86,7 @@ public class ConversationService {
         this.businessBoundaryService = businessBoundaryService;
         this.onboardingService = onboardingService;
         this.bookingCreationService = null;
+        this.requestActionHandlerRegistry = null;
         this.legacyAvailabilityService = ignoredAvailabilityService;
     }
     private static final String TIME = "time";
@@ -99,6 +103,7 @@ public class ConversationService {
     private final BusinessBoundaryService businessBoundaryService;
     private final OnboardingService onboardingService;
     private final BookingCreationService bookingCreationService;
+    private final RequestActionHandlerRegistry requestActionHandlerRegistry;
     private final AvailabilityService legacyAvailabilityService;
 
     public InquiryResponse process(String sessionId, String externalChannelId) {
@@ -198,34 +203,16 @@ public class ConversationService {
                     availability.message() == null ? "Thank you." : availability.message());
         }
 
-        if (definition.actionType() == RequestActionType.HUMAN_REVIEW) {
-            businessRequestService.createForHumanReview(
-                    businessAccount.businessId(), sessionId, inquiry.service(), inquiry.fields());
-            conversationRepository.remove(sessionId);
-            return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
-                    "Your request has been received and will be reviewed by the business.");
+        if (requestActionHandlerRegistry == null) {
+            throw new IllegalStateException("Request action handler registry is not configured.");
         }
 
-        if (definition.actionType() != RequestActionType.BOOKING) {
-            businessRequestService.create(
-                    businessAccount.businessId(), sessionId, inquiry.service(), inquiry.fields(),
-                    com.inquiro.availability.AvailabilityStatus.UNKNOWN);
-            conversationRepository.remove(sessionId);
-            return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
-                    "Your request has been received.");
-        }
-
-        String customerName = value(inquiry.fields(), CUSTOMER_NAME);
-        String customerPhone = value(inquiry.fields(), CUSTOMER_PHONE);
-        try {
-            BookingEntity booking = bookingCreationService.create(businessAccount.businessId(), inquiry.service(), inquiry.fields(), customerName, customerPhone);
-            conversationRepository.remove(sessionId);
-            return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
-                    "Your booking has been confirmed. Booking ID: " + booking.getBookingId() + ".", booking.getBookingId());
-        } catch (org.springframework.web.server.ResponseStatusException exception) {
-            conversationRepository.remove(sessionId);
-            throw exception;
-        }
+        return requestActionHandlerRegistry.handle(
+                definition,
+                businessAccount,
+                sessionId,
+                inquiry
+        );
     }
 
     private InquiryResponse saveConversation(String sessionId, InquiryResponse response, BusinessProfile profile) {
@@ -245,11 +232,10 @@ public class ConversationService {
             return List.of();
         }
 
-        List<String> missing = new ArrayList<>();
-        if (!containsField(inquiry, TIME)) missing.add(TIME);
-        if (!containsField(inquiry, CUSTOMER_NAME)) missing.add(CUSTOMER_NAME);
-        if (!containsField(inquiry, CUSTOMER_PHONE)) missing.add(CUSTOMER_PHONE);
-        return List.copyOf(missing);
+        if (requestActionHandlerRegistry != null) {
+            return requestActionHandlerRegistry.actionRequiredFields(definition);
+        }
+        return definition.actionRequiredSlots();
     }
 
     private RequestDefinition definitionFor(InquiryResult inquiry, BusinessProfile profile) {

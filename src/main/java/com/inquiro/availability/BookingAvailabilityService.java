@@ -1,146 +1,88 @@
 package com.inquiro.availability;
 
 import com.inquiro.business.BusinessProfile;
-import com.inquiro.booking.BookingEntity;
 import com.inquiro.booking.BookingJpaRepository;
-import com.inquiro.booking.BookingStatus;
+import com.inquiro.request.RequestDefinition;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Service
 public class BookingAvailabilityService {
 
-    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("H:mm");
-    private static final List<BookingStatus> BLOCKING_STATUSES =
-            List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
+    private final BookingAvailabilityStrategyRegistry strategyRegistry;
 
-    private final BookingJpaRepository bookingRepository;
-    private final BusinessScheduleAvailabilitySource scheduleSource;
-
-    public BookingAvailabilityService(BookingJpaRepository bookingRepository,
-                                       BusinessScheduleAvailabilitySource scheduleSource) {
-        this.bookingRepository = bookingRepository;
-        this.scheduleSource = scheduleSource;
+    @Autowired
+    public BookingAvailabilityService(
+            BookingJpaRepository bookingRepository,
+            BusinessScheduleAvailabilitySource scheduleSource,
+            BookingAvailabilityStrategyRegistry strategyRegistry) {
+        this.strategyRegistry = strategyRegistry;
     }
 
-    public AvailabilityResult check(String businessId, String service,
-                                    Map<String, Object> fields,
-                                    BusinessProfile businessProfile) {
-        if (businessId == null || businessId.isBlank()) return unknown("Business ID is required to check booking availability.");
-        if (businessProfile == null) return unknown("Business information is not available.");
+    /**
+     * Compatibility constructor retained for existing unit tests.
+     */
+    public BookingAvailabilityService(
+            BookingJpaRepository bookingRepository,
+            BusinessScheduleAvailabilitySource scheduleSource) {
+        this.strategyRegistry = new BookingAvailabilityStrategyRegistry(
+                java.util.List.of(
+                        new DateRangeBookingAvailabilityStrategy(bookingRepository, scheduleSource),
+                        new TimeSlotBookingAvailabilityStrategy(bookingRepository, scheduleSource)
+                )
+        );
+    }
 
-        Map<String, Object> scheduleFields = fields;
-        if (fields != null && fields.get("date") == null && fields.get("checkInDate") != null) {
-            scheduleFields = new HashMap<>(fields);
-            scheduleFields.put("date", fields.get("checkInDate"));
+    public AvailabilityResult check(
+            String businessId,
+            String service,
+            Map<String, Object> fields,
+            BusinessProfile businessProfile) {
+
+        if (businessId == null || businessId.isBlank()) {
+            return unknown("Business ID is required to check booking availability.");
+        }
+        if (businessProfile == null) {
+            return unknown("Business information is not available.");
         }
 
-        AvailabilityResult scheduleResult = scheduleSource.check(service, scheduleFields, businessProfile);
-        if (scheduleResult.status() != AvailabilityStatus.CONFIRMED) return scheduleResult;
+        RequestDefinition definition = definitionFor(service, businessProfile);
+        BookingAvailabilityStrategy strategy = strategyRegistry.strategyFor(definition, fields);
 
-        LocalDate date = parseDate(firstValue(fields, "checkInDate", "date"));
-        LocalTime startTime = parseTime(value(fields, "time"));
-        if (date == null || startTime == null) return unknown("A valid date and time are required to check booking availability.");
-
-        Integer durationNights = parsePositiveInt(fields, "durationNights");
-        if (durationNights != null) {
-            LocalDate checkOut = date.plusDays(durationNights);
-            List<BookingEntity> bookings = bookingRepository.findByBusinessIdAndStatusIn(businessId, BLOCKING_STATUSES);
-            for (BookingEntity booking : bookings) {
-                if (overlapsStay(date, checkOut, booking)) {
-                    return new AvailabilityResult(AvailabilityStatus.UNAVAILABLE,
-                            "The requested stay overlaps with an existing booking.");
-                }
-            }
-            return new AvailabilityResult(AvailabilityStatus.CONFIRMED,
-                    "The requested booking period is available.");
+        if (strategy == null) {
+            return unknown("No availability strategy is configured for service " + service + ".");
         }
 
-        LocalTime endTime = parseTime(value(fields, "endTime"));
-        if (endTime == null) endTime = startTime.plusHours(1);
-        if (!startTime.isBefore(endTime)) return unknown("The requested end time must be after the start time.");
-
-        List<BookingEntity> conflicts =
-                bookingRepository.findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
-                        businessId, date, BLOCKING_STATUSES, endTime, startTime);
-        if (!conflicts.isEmpty()) {
-            return new AvailabilityResult(AvailabilityStatus.UNAVAILABLE,
-                    "The requested time overlaps with an existing booking.");
-        }
-        return new AvailabilityResult(AvailabilityStatus.CONFIRMED,
-                "The requested time is available for booking.");
+        return strategy.check(
+                businessId,
+                service,
+                fields,
+                businessProfile
+        );
     }
 
-    private boolean overlapsStay(LocalDate requestedCheckIn, LocalDate requestedCheckOut, BookingEntity existing) {
-        LocalDate existingCheckIn = existing.getBookingDate();
-        LocalDate existingCheckOut = existing.getCheckOutDate();
-        if (existingCheckOut == null) existingCheckOut = existingCheckIn.plusDays(1);
-        return requestedCheckIn.isBefore(existingCheckOut)
-                && existingCheckIn.isBefore(requestedCheckOut);
-    }
+    private RequestDefinition definitionFor(
+            String service,
+            BusinessProfile profile) {
 
-    private String firstValue(Map<String, Object> fields, String preferred, String fallback) {
-        String value = value(fields, preferred);
-        return value != null ? value : value(fields, fallback);
-    }
-
-    private Integer parsePositiveInt(Map<String, Object> fields, String key) {
-        String value = value(fields, key);
-        if (value == null) return null;
-        try {
-            int parsed = Integer.parseInt(value);
-            return parsed > 0 ? parsed : null;
-        } catch (NumberFormatException ignored) {
+        if (service == null || profile.services() == null) {
             return null;
         }
-    }
 
-    private String value(Map<String, Object> fields, String key) {
-        if (fields == null) return null;
-        Object value = fields.get(key);
-        if (value == null) return null;
-        String text = String.valueOf(value).trim();
-        return text.isEmpty() ? null : text;
-    }
-
-    private LocalDate parseDate(String value) {
-        if (value == null) return null;
-        try {
-            return LocalDate.parse(value);
-        } catch (DateTimeParseException ignored) {
-            return switch (value.toLowerCase()) {
-                case "today" -> LocalDate.now();
-                case "tomorrow" -> LocalDate.now().plusDays(1);
-                case "day after tomorrow" -> LocalDate.now().plusDays(2);
-                default -> null;
-            };
-        }
-    }
-
-    private LocalTime parseTime(String value) {
-        if (value == null) return null;
-        String normalized = value.trim().toLowerCase().replace(".", "");
-        try {
-            if (normalized.matches("\\d{1,2}:\\d{2}"))
-                return LocalTime.parse(normalized, TIME_FORMAT);
-            if (normalized.matches("\\d{1,2}\\s*(am|pm)"))
-                return LocalTime.parse(normalized.toUpperCase(), DateTimeFormatter.ofPattern("h a"));
-            if (normalized.matches("\\d{1,2}:\\d{2}\\s*(am|pm)"))
-                return LocalTime.parse(normalized.toUpperCase(), DateTimeFormatter.ofPattern("h:mm a"));
-        } catch (DateTimeParseException ignored) {
-            return null;
-        }
-        return null;
+        return profile.services()
+                .stream()
+                .filter(definition ->
+                        definition.requestType().equalsIgnoreCase(service))
+                .findFirst()
+                .orElse(null);
     }
 
     private AvailabilityResult unknown(String message) {
-        return new AvailabilityResult(AvailabilityStatus.UNKNOWN, message);
+        return new AvailabilityResult(
+                AvailabilityStatus.UNKNOWN,
+                message
+        );
     }
 }

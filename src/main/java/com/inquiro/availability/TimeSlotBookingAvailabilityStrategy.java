@@ -1,0 +1,76 @@
+package com.inquiro.availability;
+
+import com.inquiro.business.BusinessProfile;
+import com.inquiro.booking.BookingEntity;
+import com.inquiro.booking.BookingJpaRepository;
+import com.inquiro.booking.BookingStatus;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
+import java.util.Map;
+
+@Component
+public class TimeSlotBookingAvailabilityStrategy extends AbstractBookingAvailabilityStrategy {
+
+    private static final List<BookingStatus> BLOCKING_STATUSES =
+            List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
+
+    public TimeSlotBookingAvailabilityStrategy(
+            BookingJpaRepository bookingRepository,
+            BusinessScheduleAvailabilitySource scheduleSource) {
+        super(bookingRepository, scheduleSource);
+    }
+
+    @Override
+    public String id() {
+        return "TIME_SLOT";
+    }
+
+    @Override
+    public AvailabilityResult check(
+            String businessId,
+            String service,
+            Map<String, Object> fields,
+            BusinessProfile businessProfile) {
+
+        AvailabilityResult schedule = checkSchedule(service, fields, businessProfile);
+        if (schedule.status() != AvailabilityStatus.CONFIRMED) {
+            return schedule;
+        }
+
+        LocalDate date = parseDate(firstValue(fields, "date", "checkInDate"));
+        LocalTime startTime = parseTime(value(fields, "time"));
+        if (date == null || startTime == null) {
+            return unknown("A valid date and time are required to check booking availability.");
+        }
+
+        LocalTime endTime = parseTime(value(fields, "endTime"));
+        if (endTime == null) endTime = startTime.plusHours(1);
+        if (!startTime.isBefore(endTime)) {
+            return unknown("The requested end time must be after the start time.");
+        }
+
+        List<BookingEntity> conflicts =
+                bookingRepository.findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
+                        businessId,
+                        date,
+                        BLOCKING_STATUSES,
+                        endTime,
+                        startTime
+                );
+
+        if (!conflicts.isEmpty()) {
+            return new AvailabilityResult(
+                    AvailabilityStatus.UNAVAILABLE,
+                    "The requested time overlaps with an existing booking."
+            );
+        }
+
+        return new AvailabilityResult(
+                AvailabilityStatus.CONFIRMED,
+                "The requested time is available for booking."
+        );
+    }
+}
