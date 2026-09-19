@@ -37,6 +37,17 @@ public class BookingCreationService {
             Map<String, Object> fields,
             String customerName,
             String customerPhone) {
+        return create(businessId, service, fields, customerName, customerPhone, null);
+    }
+
+    @Transactional
+    public BookingEntity create(
+            String businessId,
+            String service,
+            Map<String, Object> fields,
+            String customerName,
+            String customerPhone,
+            String idempotencyKey) {
 
         if (businessId == null || businessId.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Business ID is required");
@@ -50,6 +61,16 @@ public class BookingCreationService {
         BusinessAccount business = businessAccountRepository.findByBusinessIdForUpdate(businessId);
         if (business == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Business not found");
+        }
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            var existing = bookingRepository.findByIdempotencyKey(idempotencyKey);
+            if (existing.isPresent() && businessId.equals(existing.get().getBusinessId())) {
+                return existing.get();
+            }
+            if (existing.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Idempotency key already belongs to another business");
+            }
         }
 
         AvailabilityResult availability =
@@ -117,6 +138,7 @@ public class BookingCreationService {
                 BookingStatus.CONFIRMED,
                 LocalDateTime.now()
         );
+        booking.setIdempotencyKey(idempotencyKey);
         return bookingRepository.save(booking);
     }
 
