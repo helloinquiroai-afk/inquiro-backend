@@ -24,6 +24,7 @@ import com.inquiro.inquiry.InquiryResult;
 import com.inquiro.inquiry.InquiryStatus;
 import com.inquiro.request.RequestDefinition;
 import com.inquiro.request.RequestActionHandlerRegistry;
+import com.inquiro.request.RequestActionType;
 import com.inquiro.request.SlotFillingEngine;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
