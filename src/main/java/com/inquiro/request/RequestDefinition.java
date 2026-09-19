@@ -78,11 +78,6 @@ public record RequestDefinition(
             return "NONE";
         }
 
-        boolean dateRange = requiredSlots.stream()
-                .anyMatch(slot -> "checkInDate".equalsIgnoreCase(slot)
-                        || "checkOutDate".equalsIgnoreCase(slot)
-                        || "durationNights".equalsIgnoreCase(slot));
-
-        return dateRange ? "DATE_RANGE" : "TIME_SLOT";
+        return "AUTO";
     }
 }
