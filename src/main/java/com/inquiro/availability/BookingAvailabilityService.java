@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -35,7 +36,15 @@ public class BookingAvailabilityService {
         if (businessId == null || businessId.isBlank()) return unknown("Business ID is required to check booking availability.");
         if (businessProfile == null) return unknown("Business information is not available.");
 
-        AvailabilityResult scheduleResult = scheduleSource.check(service, fields, businessProfile);
+        Map<String, Object> scheduleFields = fields;
+        if (fields != null
+                && fields.get("date") == null
+                && fields.get("checkInDate") != null) {
+            scheduleFields = new HashMap<>(fields);
+            scheduleFields.put("date", fields.get("checkInDate"));
+        }
+
+        AvailabilityResult scheduleResult = scheduleSource.check(service, scheduleFields, businessProfile);
         if (scheduleResult.status() != AvailabilityStatus.CONFIRMED) return scheduleResult;
 
         LocalDate date = parseDate(firstValue(fields, "checkInDate", "date"));
