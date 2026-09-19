@@ -178,6 +178,32 @@ The browser's existing localStorage identifier can still be sent unchanged. Hist
 
 See [VALIDATION.md](VALIDATION.md) for actual build and smoke-test results. Real Meta delivery is a separate external acceptance check; a mocked send test does not prove it.
 
+## Phase 39 — PostgreSQL production database
+
+Phase 39 adds a production database foundation without changing the application-level repository contracts:
+
+- PostgreSQL JDBC driver and Flyway migrations are included.
+- `src/main/resources/db/migration/V1__baseline_postgresql.sql` defines the current persistent schema for business accounts/channels, conversations, requests, authentication sessions/users/memberships, and the Messenger inbox.
+- JSON payloads remain stored as `TEXT` rather than PostgreSQL `jsonb` so the existing application-owned JSON contracts remain unchanged.
+- Production should use `DATABASE_DDL_AUTO=validate`; Flyway owns schema creation/evolution.
+- H2 remains available for local development and tests. Tests explicitly disable Flyway and continue using isolated in-memory H2 with Hibernate `create-drop`.
+- Connection-pool sizing is configurable with `DATABASE_MAX_POOL_SIZE`, `DATABASE_MIN_IDLE`, and `DATABASE_CONNECTION_TIMEOUT_MS`.
+- Existing JPA entity CLOB mappings used for JSON payloads are PostgreSQL-compatible `TEXT` mappings.
+
+For production, set `DATABASE_URL` to a PostgreSQL JDBC URL, provide a dedicated database user/password, set `DATABASE_DDL_AUTO=validate`, and keep `FLYWAY_ENABLED=true`. Do not use the development H2 database for customer data.
+
+Example:
+
+```text
+DATABASE_URL=jdbc:postgresql://db-host:5432/inquiro
+DATABASE_USERNAME=inquiro
+DATABASE_PASSWORD=<secret>
+DATABASE_DDL_AUTO=validate
+FLYWAY_ENABLED=true
+```
+
+Flyway's PostgreSQL support requires the PostgreSQL database module in addition to Flyway core. citeturn0search0turn0search3
+
 ## Pilot deployment and remaining production work
 
 Build the executable jar or the supplied `Dockerfile`. The container runs as a non-root user and listens on 8080. Supply secrets at runtime. For an H2 pilot, persist `/app/data` on a volume writable by UID 10001 and use one instance. The Docker image must be built/tested in your deployment environment; its execution is not implied by the Maven build.
