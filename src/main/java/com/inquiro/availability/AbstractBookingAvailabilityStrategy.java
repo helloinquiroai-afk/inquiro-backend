@@ -2,6 +2,7 @@ package com.inquiro.availability;
 
 import com.inquiro.business.BusinessProfile;
 import com.inquiro.booking.BookingJpaRepository;
+import com.inquiro.booking.BookingInventoryService;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -15,12 +16,25 @@ abstract class AbstractBookingAvailabilityStrategy implements BookingAvailabilit
 
     protected final BookingJpaRepository bookingRepository;
     protected final BusinessScheduleAvailabilitySource scheduleSource;
+    protected final BookingInventoryService inventoryService;
 
     protected AbstractBookingAvailabilityStrategy(
             BookingJpaRepository bookingRepository,
             BusinessScheduleAvailabilitySource scheduleSource) {
+        this(bookingRepository, scheduleSource, null);
+    }
+
+    protected AbstractBookingAvailabilityStrategy(
+            BookingJpaRepository bookingRepository,
+            BusinessScheduleAvailabilitySource scheduleSource,
+            BookingInventoryService inventoryService) {
         this.bookingRepository = bookingRepository;
         this.scheduleSource = scheduleSource;
+        this.inventoryService = inventoryService;
+    }
+
+    protected int capacityFor(String businessId, String service) {
+        return inventoryService == null ? 1 : inventoryService.capacityFor(businessId, service);
     }
 
     protected AvailabilityResult checkSchedule(
