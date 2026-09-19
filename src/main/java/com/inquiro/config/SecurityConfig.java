@@ -62,7 +62,7 @@ public class SecurityConfig {
                                 "/whatsapp/webhook").permitAll()
                         .requestMatchers("/api/auth/logout").authenticated()
                         .requestMatchers("/api/test/**", "/h2-console/**").hasRole("OPERATOR")
-                        .requestMatchers("/api/business/**").authenticated()
+                        .requestMatchers("/api/business/**", "/api/knowledge/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, exception) -> writeError(response, 401,
