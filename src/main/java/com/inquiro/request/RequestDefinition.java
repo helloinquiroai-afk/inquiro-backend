@@ -42,31 +42,14 @@ public record RequestDefinition(
         slotPrompts = slotPrompts == null ? Map.of() : Map.copyOf(slotPrompts);
         actionType = actionType == null ? RequestActionType.BOOKING : actionType;
 
-        if (actionRequiredSlots == null) {
-            actionRequiredSlots = defaultActionRequiredSlots(actionType, requiredSlots);
-        } else {
-            actionRequiredSlots = List.copyOf(actionRequiredSlots);
-        }
+        actionRequiredSlots = actionRequiredSlots == null
+                ? List.of()
+                : List.copyOf(actionRequiredSlots);
 
         availabilityStrategy = normalizeAvailabilityStrategy(
                 availabilityStrategy,
                 actionType
         );
-    }
-
-    private static List<String> defaultActionRequiredSlots(
-            RequestActionType actionType,
-            List<String> requiredSlots) {
-        if (actionType != RequestActionType.BOOKING) {
-            return List.of();
-        }
-        boolean dateRange = requiredSlots.stream().anyMatch(slot ->
-                "checkInDate".equalsIgnoreCase(slot)
-                        || "checkOutDate".equalsIgnoreCase(slot)
-                        || "durationNights".equalsIgnoreCase(slot));
-        return dateRange
-                ? List.of("customerName", "customerPhone")
-                : List.of("time", "customerName", "customerPhone");
     }
 
     private static String normalizeAvailabilityStrategy(
