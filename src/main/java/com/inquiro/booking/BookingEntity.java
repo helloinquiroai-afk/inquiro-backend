@@ -62,6 +62,12 @@ public class BookingEntity {
     @Column(name = "customer_phone")
     private String customerPhone;
 
+    @Column(name = "idempotency_key", unique = true)
+    private String idempotencyKey;
+
+    @Column(name = "hold_expires_at")
+    private LocalDateTime holdExpiresAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private BookingStatus status;
@@ -112,6 +118,10 @@ public class BookingEntity {
     public String getCustomerName() { return customerName; }
     public String getCustomerPhone() { return customerPhone; }
     public BookingStatus getStatus() { return status; }
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public LocalDateTime getHoldExpiresAt() { return holdExpiresAt; }
+    public void setIdempotencyKey(String value) { this.idempotencyKey = value; }
+    public void setHoldExpiresAt(LocalDateTime value) { this.holdExpiresAt = value; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 
     public void setStatus(BookingStatus status) { this.status = status; }
