@@ -37,9 +37,7 @@ public class BookingAvailabilityService {
         if (businessProfile == null) return unknown("Business information is not available.");
 
         Map<String, Object> scheduleFields = fields;
-        if (fields != null
-                && fields.get("date") == null
-                && fields.get("checkInDate") != null) {
+        if (fields != null && fields.get("date") == null && fields.get("checkInDate") != null) {
             scheduleFields = new HashMap<>(fields);
             scheduleFields.put("date", fields.get("checkInDate"));
         }
@@ -51,11 +49,9 @@ public class BookingAvailabilityService {
         LocalTime startTime = parseTime(value(fields, "time"));
         if (date == null || startTime == null) return unknown("A valid date and time are required to check booking availability.");
 
-        if ("ROOM_BOOKING".equalsIgnoreCase(service)) {
-            Integer nights = parsePositiveInt(fields, "durationNights");
-            if (nights == null) return unknown("A valid number of nights is required for a room booking.");
-
-            LocalDate checkOut = date.plusDays(nights);
+        Integer durationNights = parsePositiveInt(fields, "durationNights");
+        if (durationNights != null) {
+            LocalDate checkOut = date.plusDays(durationNights);
             List<BookingEntity> bookings = bookingRepository.findByBusinessIdAndStatusIn(businessId, BLOCKING_STATUSES);
             for (BookingEntity booking : bookings) {
                 if (overlapsStay(date, checkOut, booking)) {
@@ -64,7 +60,7 @@ public class BookingAvailabilityService {
                 }
             }
             return new AvailabilityResult(AvailabilityStatus.CONFIRMED,
-                    "The requested stay is available for booking.");
+                    "The requested booking period is available.");
         }
 
         LocalTime endTime = parseTime(value(fields, "endTime"));
