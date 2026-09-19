@@ -28,3 +28,22 @@ CREATE INDEX IF NOT EXISTS idx_booking_idempotency
 
 CREATE INDEX IF NOT EXISTS idx_booking_business_status
     ON booking (business_id, status);
+
+
+CREATE TABLE IF NOT EXISTS booking_inventory (
+    inventory_id VARCHAR(128) PRIMARY KEY,
+    business_id VARCHAR(128) NOT NULL,
+    service VARCHAR(255) NOT NULL,
+    capacity INTEGER NOT NULL,
+    enabled BOOLEAN NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    CONSTRAINT fk_booking_inventory_business
+        FOREIGN KEY (business_id) REFERENCES business_account (business_id),
+    CONSTRAINT uq_booking_inventory_business_service
+        UNIQUE (business_id, service),
+    CONSTRAINT chk_booking_inventory_capacity
+        CHECK (capacity > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_booking_inventory_business
+    ON booking_inventory (business_id);
