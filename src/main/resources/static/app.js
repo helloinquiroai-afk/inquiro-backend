@@ -1,4 +1,9 @@
-const state={sessionId:localStorage.getItem('inquiro.demo.session')||crypto.randomUUID()};
+const params=new URLSearchParams(window.location.search);
+const channelId=(params.get('channel')||'website-default').trim()||'website-default';
+const state={
+  sessionId:localStorage.getItem('inquiro.demo.session')||crypto.randomUUID(),
+  customerId:localStorage.getItem('inquiro.demo.customer')||crypto.randomUUID()
+};
 const messages=document.getElementById('messages');
 const form=document.getElementById('chatForm');
 const input=document.getElementById('message');
@@ -10,6 +15,7 @@ const sessionLabel=document.getElementById('sessionLabel');
 
 sessionLabel.textContent=state.sessionId.slice(0,8)+'…';
 localStorage.setItem('inquiro.demo.session',state.sessionId);
+localStorage.setItem('inquiro.demo.customer',state.customerId);
 
 function addMessage(text,role){
   const el=document.createElement('div');
@@ -30,7 +36,11 @@ form.addEventListener('submit',async e=>{
   try{
     const response=await fetch('/api/conversations/message',{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({sessionId:state.sessionId,message:text})
+      body:JSON.stringify({
+        sessionId:state.sessionId,
+        channelId:channelId,
+        message:text
+      })
     });
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw new Error(data.message||'The receptionist could not process that message.');
@@ -52,6 +62,10 @@ document.getElementById('newChat').addEventListener('click',()=>{
 });
 
 document.getElementById('clearChat').addEventListener('click',async()=>{
-  try{await fetch('/api/conversations/'+encodeURIComponent(state.sessionId),{method:'DELETE'});}catch(_){ }
+  try{
+    await fetch('/api/conversations/'+encodeURIComponent(state.sessionId)+'?channelId='+encodeURIComponent(channelId),{
+      method:'DELETE'
+    });
+  }catch(_){ }
   document.getElementById('newChat').click();
 });

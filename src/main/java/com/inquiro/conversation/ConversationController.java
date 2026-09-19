@@ -24,22 +24,38 @@ public class ConversationController {
     public InquiryResponse message(
             @Valid @RequestBody ConversationMessageRequest request) {
 
+        String channelId = request.channelId() == null || request.channelId().isBlank()
+                ? websiteChannelId
+                : request.channelId().trim();
+
         return conversationService.process(
                 request.sessionId(),
                 BusinessChannelType.WEBSITE,
-                websiteChannelId,
+                channelId,
                 request.message()
         );
     }
 
     @DeleteMapping("/{sessionId}")
     public void clear(
-            @PathVariable String sessionId) {
+            @PathVariable String sessionId,
+            @RequestParam(required = false) String channelId) {
 
-        var channel = businessChannelRepository.findByTypeAndExternalId(BusinessChannelType.WEBSITE, websiteChannelId);
+        String resolvedChannelId = channelId == null || channelId.isBlank()
+                ? websiteChannelId
+                : channelId.trim();
+
+        var channel = businessChannelRepository.findByTypeAndExternalId(
+                BusinessChannelType.WEBSITE,
+                resolvedChannelId);
+
         if (channel != null && channel.enabled()) {
-            conversationRepository.remove(new ConversationIdentity(channel.businessId(), BusinessChannelType.WEBSITE,
-                    websiteChannelId, sessionId).sessionId());
+            conversationRepository.remove(new ConversationIdentity(
+                    channel.businessId(),
+                    BusinessChannelType.WEBSITE,
+                    resolvedChannelId,
+                    sessionId
+            ).sessionId());
         }
     }
 }
