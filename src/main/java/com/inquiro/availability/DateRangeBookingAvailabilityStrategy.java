@@ -4,6 +4,7 @@ import com.inquiro.business.BusinessProfile;
 import com.inquiro.booking.BookingEntity;
 import com.inquiro.booking.BookingJpaRepository;
 import com.inquiro.booking.BookingStatus;
+import com.inquiro.booking.BookingInventoryService;
 import com.inquiro.request.RequestDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
