@@ -165,4 +165,40 @@ class BookingCreationServiceTest {
         assertEquals(404, exception.getStatusCode().value());
         verifyNoInteractions(availabilityService, bookingRepository);
     }
+
+    @Test
+    void returnsExistingBookingForSameIdempotencyKey() {
+        BookingEntity existing = new BookingEntity(
+                "booking_existing", "biz_001", "TABLE_RESERVATION",
+                LocalDate.of(2026, 9, 20), LocalTime.of(19, 0), LocalTime.of(20, 0),
+                "Gayan", "+94770000000", BookingStatus.CONFIRMED, java.time.LocalDateTime.now());
+        existing.setIdempotencyKey("same-request");
+        when(businessRepository.findByBusinessIdForUpdate("biz_001")).thenReturn(business);
+        when(bookingRepository.findByIdempotencyKey("same-request")).thenReturn(java.util.Optional.of(existing));
+
+        BookingEntity result = service.create(
+                "biz_001", "TABLE_RESERVATION",
+                Map.of("date", "2026-09-20", "time", "19:00"),
+                "Gayan", "+94770000000", "same-request");
+
+        assertEquals("booking_existing", result.getBookingId());
+        verifyNoInteractions(availabilityService);
+        verify(bookingRepository, never()).save(any());
+    }
+
+    @Test
+    void cancelsConfirmedBookingForCorrectBusiness() {
+        BookingEntity existing = new BookingEntity(
+                "booking_existing", "biz_001", "TABLE_RESERVATION",
+                LocalDate.of(2026, 9, 20), LocalTime.of(19, 0), LocalTime.of(20, 0),
+                "Gayan", "+94770000000", BookingStatus.CONFIRMED, java.time.LocalDateTime.now());
+        when(bookingRepository.findById("booking_existing")).thenReturn(java.util.Optional.of(existing));
+        when(bookingRepository.save(existing)).thenReturn(existing);
+
+        BookingEntity result = service.cancel("booking_existing", "biz_001");
+
+        assertEquals(BookingStatus.CANCELLED, result.getStatus());
+        verify(bookingRepository).save(existing);
+    }
+
 }
