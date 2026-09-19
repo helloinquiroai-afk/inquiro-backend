@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inquiro.ai.AiService;
 import com.inquiro.ai.BusinessQuestionPrompt;
 import com.inquiro.business.*;
+import com.inquiro.auth.*;
+import java.time.Instant;
+import java.util.UUID;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,13 +34,27 @@ class BusinessKnowledgeApiTest {
     @Autowired BusinessKnowledgeStore store;
     @Autowired KnowledgeIngestionService ingestion;
     @MockitoBean AiService ai;
+    @Autowired AuthService auth;
+    @Autowired UserAccountJpaRepository users;
+    @Autowired BusinessMembershipJpaRepository memberships;
+
+    private String token;
 
     @BeforeEach void setup() {
         accounts.save(new BusinessAccount("knowledge-test", "Paris Hotel", KnowledgeFixtures.profile()));
+        UserAccountEntity user = users.findByEmail("knowledge-api-owner@inquiro.test").orElseGet(() -> {
+            auth.register("knowledge-api-owner@inquiro.test", "correct horse battery staple", "Knowledge Owner");
+            return users.findByEmail("knowledge-api-owner@inquiro.test").orElseThrow();
+        });
+        if (memberships.findByUserIdAndBusinessId(user.getUserId(), "knowledge-test").isEmpty()) {
+            memberships.save(new BusinessMembershipEntity("mem_" + UUID.randomUUID(), user.getUserId(),
+                    "knowledge-test", BusinessMembershipRole.OWNER, Instant.now()));
+        }
+        token = auth.login("knowledge-api-owner@inquiro.test", "correct horse battery staple").accessToken();
     }
 
     @Test void readsPersistedKnowledge() throws Exception {
-        mvc.perform(get(BASE).header("X-Inquiro-Management-Key", "test-management-key"))
+        mvc.perform(get(BASE).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.facts.parking").value("Yes, free parking is available for hotel guests."))
                 .andExpect(jsonPath("$.policies[0]").value("Cancellation requires 24 hours notice."));
     }
@@ -45,7 +62,7 @@ class BusinessKnowledgeApiTest {
     @Test void replacesOnlyKnowledgeAndReloadsAllFieldsFromDatabase() throws Exception {
         var original = KnowledgeFixtures.profile();
         var replacement = original.knowledge().withFaqs(List.of("Q: Is breakfast included?\nA: Breakfast is included."));
-        mvc.perform(put(BASE).header("X-Inquiro-Management-Key", "test-management-key")
+        mvc.perform(put(BASE).header("Authorization", "Bearer " + token)
                 .contentType("application/json").content(mapper.writeValueAsString(replacement)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.faqs[0]").value(replacement.faqs().get(0)));
         // A new repository adapter reads from JPA; no knowledge-store cache can satisfy this.
@@ -58,7 +75,7 @@ class BusinessKnowledgeApiTest {
     }
 
     @Test void fullReplacementNormalizesNullCollectionsAndExplicitlyClearsOmittedSections() throws Exception {
-        mvc.perform(put(BASE).header("X-Inquiro-Management-Key", "test-management-key")
+        mvc.perform(put(BASE).header("Authorization", "Bearer " + token)
                 .contentType("application/json").content("{\"faqs\":null,\"facts\":null,\"boundaries\":null}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.faqs").isEmpty())
                 .andExpect(jsonPath("$.facts").isEmpty()).andExpect(jsonPath("$.boundaries.supported").isEmpty());
@@ -67,21 +84,21 @@ class BusinessKnowledgeApiTest {
 
     @Test void missingBusinessReturns404AndNeverCreatesAccount() throws Exception {
         String absent = "/api/business/accounts/does-not-exist/knowledge";
-        mvc.perform(get(absent).header("X-Inquiro-Management-Key", "test-management-key")).andExpect(status().isNotFound());
-        mvc.perform(put(absent).header("X-Inquiro-Management-Key", "test-management-key").contentType("application/json").content("{}"))
+        mvc.perform(get(absent).header("Authorization", "Bearer " + token)).andExpect(status().isNotFound());
+        mvc.perform(put(absent).header("Authorization", "Bearer " + token).contentType("application/json").content("{}"))
                 .andExpect(status().isNotFound());
-        mvc.perform(post(absent + "/faq-suggestions").header("X-Inquiro-Management-Key", "test-management-key"))
+        mvc.perform(post(absent + "/faq-suggestions").header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound());
         assertNull(accounts.findByBusinessId("does-not-exist"));
         verifyNoInteractions(ai);
     }
 
     @Test void invalidIdsAndPayloadsReturn400WithoutChangingKnowledge() throws Exception {
-        mvc.perform(get("/api/business/accounts/bad!id/knowledge").header("X-Inquiro-Management-Key", "test-management-key"))
+        mvc.perform(get("/api/business/accounts/bad!id/knowledge").header("Authorization", "Bearer " + token))
                 .andExpect(status().isBadRequest());
         for (String body : List.of("null", "[]", "{", "{\"faqz\":[]}", "{\"faqs\":[null]}",
                 "{\"facts\":{\"parking\":null}}", "{\"facts\":{\"parking\":\" \"}}", "{\"faqs\":[\" \"]}")) {
-            mvc.perform(put(BASE).header("X-Inquiro-Management-Key", "test-management-key")
+            mvc.perform(put(BASE).header("Authorization", "Bearer " + token)
                     .contentType("application/json").content(body))
                     .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error").exists());
         }
@@ -99,14 +116,14 @@ class BusinessKnowledgeApiTest {
     @Test void suggestionsStayTransientUntilExplicitEditedApproval() throws Exception {
         var original = knowledge.get("knowledge-test");
         when(ai.suggestFaqs(any())).thenReturn(List.of(new FaqSuggestion("Is parking free?", "Parking is free.")));
-        mvc.perform(post(BASE + "/faq-suggestions").header("X-Inquiro-Management-Key", "test-management-key"))
+        mvc.perform(post(BASE + "/faq-suggestions").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].question").value("Is parking free?"));
         assertEquals(original, knowledge.get("knowledge-test"));
         String review = """
                 {"decision":"APPROVE","suggestion":{"question":"Is guest parking free?","answer":"Guest parking is free."}}
                 """;
         for (int i = 0; i < 2; i++) {
-            mvc.perform(post(BASE + "/faq-suggestions/review").header("X-Inquiro-Management-Key", "test-management-key")
+            mvc.perform(post(BASE + "/faq-suggestions/review").header("Authorization", "Bearer " + token)
                     .contentType("application/json").content(review)).andExpect(status().isOk())
                     .andExpect(jsonPath("$.decision").value("APPROVE"));
         }
@@ -119,7 +136,7 @@ class BusinessKnowledgeApiTest {
 
     @Test void explicitRejectionDoesNotPublishOrAlterKnowledge() throws Exception {
         var original = knowledge.get("knowledge-test");
-        mvc.perform(post(BASE + "/faq-suggestions/review").header("X-Inquiro-Management-Key", "test-management-key")
+        mvc.perform(post(BASE + "/faq-suggestions/review").header("Authorization", "Bearer " + token)
                 .contentType("application/json").content("""
                     {"decision":"REJECT","suggestion":{"question":"Is the pool heated?","answer":"The pool is heated."}}
                     """)).andExpect(status().isOk()).andExpect(jsonPath("$.decision").value("REJECT"));
@@ -129,11 +146,11 @@ class BusinessKnowledgeApiTest {
     }
 
     @Test void reviewValidationAndAiFailureAreSafe() throws Exception {
-        mvc.perform(post(BASE + "/faq-suggestions/review").header("X-Inquiro-Management-Key", "test-management-key")
+        mvc.perform(post(BASE + "/faq-suggestions/review").header("Authorization", "Bearer " + token)
                 .contentType("application/json").content("{\"decision\":\"APPROVE\",\"suggestion\":{\"question\":\"Q\",\"answer\":\"\"}}"))
                 .andExpect(status().isBadRequest());
         when(ai.suggestFaqs(any())).thenThrow(new IllegalStateException("secret-key upstream failure"));
-        mvc.perform(post(BASE + "/faq-suggestions").header("X-Inquiro-Management-Key", "test-management-key"))
+        mvc.perform(post(BASE + "/faq-suggestions").header("Authorization", "Bearer " + token))
                 .andExpect(status().isBadGateway()).andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("secret-key"))));
     }

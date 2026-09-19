@@ -22,7 +22,7 @@ public class BusinessProfileController {
     public BusinessProfile getBusinessProfile(
             @PathVariable String businessId) {
 
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
 
         BusinessAccount account =
                 businessAccountRepository.findByBusinessId(

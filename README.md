@@ -178,6 +178,21 @@ The browser's existing localStorage identifier can still be sent unchanged. Hist
 
 See [VALIDATION.md](VALIDATION.md) for actual build and smoke-test results. Real Meta delivery is a separate external acceptance check; a mocked send test does not prove it.
 
+## Phase 40 — Production security and multi-tenancy hardening
+
+Phase 40 makes tenant authorization the normal security boundary for business-management APIs:
+
+- Business endpoints no longer accept the management key as a tenant-access bypass.
+- Business users authenticate with the existing opaque bearer session.
+- Every business-scoped management operation checks membership for the requested `businessId`.
+- Owner and admin roles can perform tenant business writes; membership administration remains owner-only.
+- Unauthenticated/unknown application routes are denied instead of falling through to public access.
+- CORS is disabled for cross-origin browser calls by default and can be explicitly configured with `INQUIRO_SECURITY_ALLOWED_ORIGINS`.
+- Security response headers include content-type protection, referrer-policy, and HSTS.
+- Regression tests cover tenant isolation, admin permissions, management-key bypass prevention, and deny-by-default routing.
+
+The management key remains an operator mechanism for the explicitly internal/test surface. It is not a business tenant credential and must not be exposed to customer browsers.
+
 ## Phase 39 — PostgreSQL production database
 
 Phase 39 adds a production database foundation without changing the application-level repository contracts:

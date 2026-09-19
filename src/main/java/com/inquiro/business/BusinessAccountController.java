@@ -80,7 +80,7 @@ public class BusinessAccountController {
             @PathVariable String businessId) {
 
         validateBusinessId(businessId);
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
 
         OnboardingSummary summary =
                 onboardingService.getOnboardingSummary(businessId);
@@ -100,7 +100,7 @@ public class BusinessAccountController {
             @PathVariable String businessId) {
 
         validateBusinessId(businessId);
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
 
         List<com.inquiro.business.onboarding.OnboardingStep> steps =
                 onboardingService.getOnboardingSteps(businessId);

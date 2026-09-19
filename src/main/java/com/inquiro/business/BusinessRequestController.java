@@ -62,7 +62,7 @@ public class BusinessRequestController {
         BusinessRequest existingRequest =
                 findRequest(requestId);
 
-        tenantAuthorization.requireBusinessAccess(
+        tenantAuthorization.requireBusinessWriteAccess(
                 existingRequest.businessId()
         );
 

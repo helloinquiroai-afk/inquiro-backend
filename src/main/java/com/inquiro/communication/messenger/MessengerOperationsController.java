@@ -28,7 +28,7 @@ public class MessengerOperationsController {
     @PostMapping("/{eventId}/retry")
     @Transactional
     public EventStatus retry(@PathVariable String businessId, @PathVariable Long eventId) {
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
         var event = inbox.lockById(eventId).filter(item -> item.getBusinessId().equals(businessId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         if (event.getStatus() != MessengerInboxEvent.Status.FAILED) {

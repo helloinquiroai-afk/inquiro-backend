@@ -29,7 +29,7 @@ public class BusinessChannelController {
     public List<BusinessChannel> getChannels(
             @PathVariable String businessId) {
 
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
 
         validateBusinessExists(
                 businessId
@@ -54,7 +54,7 @@ public class BusinessChannelController {
             @PathVariable String businessId,
             @RequestBody CreateBusinessChannelRequest request) {
 
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
 
         validateBusinessExists(
                 businessId

@@ -57,6 +57,15 @@ public class TenantAuthorizationService {
                         Instant.now()));
     }
 
+    public void requireBusinessWriteAccess(String businessId) {
+        BusinessMembershipRole role = requireBusinessAccess(businessId);
+        if (role != BusinessMembershipRole.OWNER && role != BusinessMembershipRole.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Owner or admin access is required");
+        }
+    }
+
     public void requireOwner(String businessId) {
 
         if (isOperator()) {

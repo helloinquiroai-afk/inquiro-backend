@@ -25,7 +25,7 @@ public class BusinessKnowledgeController {
     @PutMapping
     public BusinessKnowledge replace(@PathVariable String businessId, @RequestBody com.fasterxml.jackson.databind.JsonNode request)
             throws com.fasterxml.jackson.core.JsonProcessingException {
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
         BusinessKnowledge knowledge = mapper.readerFor(BusinessKnowledge.class)
                 .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).readValue(request.toString());
         return service.replace(businessId, knowledge);
@@ -33,13 +33,13 @@ public class BusinessKnowledgeController {
 
     @PostMapping("/faq-suggestions")
     public List<FaqSuggestion> suggest(@PathVariable String businessId) {
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
         return service.suggest(businessId);
     }
 
     @PostMapping("/faq-suggestions/review")
     public ReviewResponse review(@PathVariable String businessId, @Valid @RequestBody ReviewRequest request) {
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
         var knowledge = service.review(businessId, request.decision(), request.suggestion());
         return new ReviewResponse(request.decision(), knowledge);
     }
