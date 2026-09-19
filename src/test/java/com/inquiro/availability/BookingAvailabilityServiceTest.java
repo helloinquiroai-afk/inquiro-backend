@@ -176,6 +176,101 @@ class BookingAvailabilityServiceTest {
                 );
     }
 
+
+    @Test
+    void confirmsHotelStayUsingCheckInDateAndDurationNights() {
+        BookingAvailabilityService service = newService();
+        givenBusinessIsOpen();
+        when(bookingRepository.findByBusinessIdAndStatusIn(
+                any(), any()
+        )).thenReturn(List.of());
+
+        AvailabilityResult result = service.check(
+                BUSINESS_ID,
+                "ROOM_BOOKING",
+                Map.of(
+                        "checkInDate", DATE.toString(),
+                        "durationNights", 2,
+                        "time", "14:00"
+                ),
+                hotelProfile()
+        );
+
+        assertEquals(AvailabilityStatus.CONFIRMED, result.status());
+        verify(bookingRepository).findByBusinessIdAndStatusIn(
+                eq(BUSINESS_ID),
+                eq(List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED))
+        );
+    }
+
+    @Test
+    void rejectsHotelStayWhenDateRangeOverlapsExistingBooking() {
+        BookingAvailabilityService service = newService();
+        givenBusinessIsOpen();
+        BookingEntity existing = new BookingEntity(
+                "booking_hotel",
+                BUSINESS_ID,
+                "ROOM_BOOKING",
+                DATE.plusDays(2),
+                DATE.plusDays(5),
+                3,
+                LocalTime.of(14, 0),
+                LocalTime.of(15, 0),
+                "Existing",
+                "0770000000",
+                BookingStatus.CONFIRMED,
+                LocalDateTime.now()
+        );
+        when(bookingRepository.findByBusinessIdAndStatusIn(any(), any()))
+                .thenReturn(List.of(existing));
+
+        AvailabilityResult result = service.check(
+                BUSINESS_ID,
+                "ROOM_BOOKING",
+                Map.of(
+                        "checkInDate", DATE.toString(),
+                        "durationNights", 3,
+                        "time", "14:00"
+                ),
+                hotelProfile()
+        );
+
+        assertEquals(AvailabilityStatus.UNAVAILABLE, result.status());
+    }
+
+    private BusinessProfile hotelProfile() {
+        return new BusinessProfile(
+                "Test Hotel",
+                "HOSPITALITY",
+                "Hotel",
+                List.of(),
+                new com.inquiro.business.BusinessKnowledge(
+                        "Hotel",
+                        List.of("ROOM_BOOKING"),
+                        List.of(),
+                        Map.of(),
+                        List.of(),
+                        List.of(),
+                        "",
+                        Map.of(
+                                "MONDAY", "00:00-23:59",
+                                "TUESDAY", "00:00-23:59",
+                                "WEDNESDAY", "00:00-23:59",
+                                "THURSDAY", "00:00-23:59",
+                                "FRIDAY", "00:00-23:59",
+                                "SATURDAY", "00:00-23:59",
+                                "SUNDAY", "00:00-23:59"
+                        ),
+                        List.of(),
+                        Map.of(),
+                        Map.of(),
+                        List.of(),
+                        List.of(),
+                        null
+                )
+        );
+    }
+
     private BookingAvailabilityService newService() {
         return new BookingAvailabilityService(bookingRepository, scheduleSource);
     }
