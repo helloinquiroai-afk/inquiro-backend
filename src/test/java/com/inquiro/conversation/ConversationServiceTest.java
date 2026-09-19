@@ -418,6 +418,57 @@ class ConversationServiceTest {
     }
 
     @Test
+    void generalQuestionPreservesUnfinishedRequest() {
+
+        start();
+
+        when(
+                ai.analyzeConversationIntent(
+                        eq(profile),
+                        eq("ROOM_BOOKING"),
+                        anyMap(),
+                        anyList(),
+                        eq("Do you know about Galle?")
+                )
+        ).thenReturn(
+                new ConversationIntentAnalysis(
+                        "GENERAL_QUESTION",
+                        .99
+                )
+        );
+
+        when(
+                ai.answerGeneralQuestion(
+                        "Do you know about Galle?"
+                )
+        ).thenReturn(
+                "Galle is a historic city on the southern coast of Sri Lanka, known for Galle Fort."
+        );
+
+        var result = say("Do you know about Galle?");
+
+        assertEquals(
+                "Galle is a historic city on the southern coast of Sri Lanka, known for Galle Fort.",
+                result.reply()
+        );
+
+        assertEquals(
+                List.of("checkInDate", "guestCount", "durationNights"),
+                result.missingFields()
+        );
+
+        assertEquals(
+                "Paris",
+                result.inquiry().fields().get("location")
+        );
+
+        assertEquals(
+                1,
+                sessions.size()
+        );
+    }
+
+    @Test
     void failedNewAnalysisPreservesPreviousState() {
 
         start();

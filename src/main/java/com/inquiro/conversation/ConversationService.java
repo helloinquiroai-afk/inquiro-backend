@@ -62,6 +62,7 @@ public class ConversationService {
         this.bookingCreationService = bookingCreationService;
         this.requestActionHandlerRegistry = requestActionHandlerRegistry;
         this.legacyAvailabilityService = null;
+        this.businessContextResolver = new BusinessContextResolver();
     }
 
     /** Compatibility constructor for existing unit tests and non-booking callers. */
@@ -88,6 +89,7 @@ public class ConversationService {
         this.bookingCreationService = null;
         this.requestActionHandlerRegistry = null;
         this.legacyAvailabilityService = ignoredAvailabilityService;
+        this.businessContextResolver = new BusinessContextResolver();
     }
     private static final String TIME = "time";
     private static final String CUSTOMER_NAME = "customerName";
@@ -105,6 +107,7 @@ public class ConversationService {
     private final BookingCreationService bookingCreationService;
     private final RequestActionHandlerRegistry requestActionHandlerRegistry;
     private final AvailabilityService legacyAvailabilityService;
+    private final BusinessContextResolver businessContextResolver;
 
     public InquiryResponse process(String sessionId, String externalChannelId) {
         return process(sessionId, BusinessChannelType.MESSENGER, externalChannelId, null);
@@ -141,6 +144,43 @@ public class ConversationService {
             return new InquiryResponse(session.getInquiry(), session.getMissingFields(), InquiryStatus.NEEDS_INFORMATION, answer);
         }
 
+        if ("OFF_TOPIC".equalsIgnoreCase(intent.intent())) {
+            return new InquiryResponse(
+                    session.getInquiry(),
+                    session.getMissingFields(),
+                    InquiryStatus.NEEDS_INFORMATION,
+                    buildBusinessScopeReply(profile, session.getInquiry().service(), session.getMissingFields())
+            );
+        }
+
+        if ("NEEDS_CLARIFICATION".equalsIgnoreCase(intent.intent())) {
+            String clarification = aiService.clarifyCustomerQuestion(
+                    message,
+                    session.getInquiry().service(),
+                    session.getMissingFields()
+            );
+            return new InquiryResponse(
+                    session.getInquiry(),
+                    session.getMissingFields(),
+                    InquiryStatus.NEEDS_INFORMATION,
+                    clarification
+            );
+        }
+
+        if ("GENERAL_QUESTION".equalsIgnoreCase(intent.intent())) {
+            String question = intent.knowledgeQuestions().isEmpty() ? message : intent.knowledgeQuestions().get(0);
+            String answer = aiService.answerGeneralQuestion(question);
+            // Answer the side question only. The unfinished request remains persisted
+            // and its missing fields are returned unchanged, but we do not append the
+            // next booking question to the general answer.
+            return new InquiryResponse(
+                    session.getInquiry(),
+                    session.getMissingFields(),
+                    InquiryStatus.NEEDS_INFORMATION,
+                    answer
+            );
+        }
+
         if ("NEW_REQUEST".equalsIgnoreCase(intent.intent())) {
             InquiryResponse response = inquiryOrchestrator.process(message, profile);
             if (!isBusinessRequest(response.inquiry())) return response;
@@ -154,6 +194,8 @@ public class ConversationService {
         String knowledgeReply = inquiryOrchestrator.answerKnowledgeQuestions(intent.knowledgeQuestions(), profile);
         FollowUpAnalysis replyAnalysis = aiService.analyzeFollowUp(session.getInquiry().service(), session.getInquiry().fields(), session.getMissingFields(), message);
         Map<String, Object> fields = EntityMerger.merge(session.getInquiry().fields(), replyAnalysis.entities());
+        RequestDefinition definition = definitionFor(session.getInquiry(), profile);
+        fields = businessContextResolver.resolve(definition, fields, profile);
         RequestAnalysis updatedAnalysis = new RequestAnalysis(session.getInquiry().service(), 1.0, fields);
         InquiryResult updatedInquiry = new InquiryResult(session.getInquiry().domain(), session.getInquiry().service(), fields);
         List<String> missing = slotFillingEngine.findMissingSlots(updatedAnalysis, profile);
@@ -266,6 +308,17 @@ public class ConversationService {
         if (inquiry == null || inquiry.service() == null || inquiry.service().isBlank()) return false;
         String service = inquiry.service();
         return !"UNKNOWN".equalsIgnoreCase(service) && !"GREETING".equalsIgnoreCase(service) && !"BUSINESS_QUESTION".equalsIgnoreCase(service);
+    }
+
+    private String buildBusinessScopeReply(
+            BusinessProfile profile,
+            String service,
+            List<String> missingFields) {
+        String next = missingFields == null || missingFields.isEmpty()
+                ? "How can I help you?"
+                : buildReply(missingFields, profile, service);
+        return "I’m here to help with " + profile.businessName()
+                + " and its configured services. " + next;
     }
 
     private String buildReply(List<String> missingFields, BusinessProfile profile, String service) {

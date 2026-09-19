@@ -10,16 +10,16 @@ import com.inquiro.business.BusinessBoundaryService;
 import com.inquiro.business.BusinessProfile;
 import com.inquiro.business.BusinessProfileProvider;
 import com.inquiro.business.BusinessQuestionService;
+import com.inquiro.conversation.BusinessContextResolver;
 import com.inquiro.request.RequestDefinition;
 import com.inquiro.request.SlotFillingEngine;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
 public class InquiryOrchestrator {
 
     private final AiService aiService;
@@ -29,6 +29,40 @@ public class InquiryOrchestrator {
     private final BusinessQuestionService businessQuestionService;
     private final AvailabilityService availabilityService;
     private final BusinessBoundaryService businessBoundaryService;
+    private final BusinessContextResolver businessContextResolver;
+
+    @Autowired
+    public InquiryOrchestrator(
+            AiService aiService,
+            SlotFillingEngine slotFillingEngine,
+            RequestAnalysisValidator validator,
+            BusinessProfileProvider businessProfileProvider,
+            BusinessQuestionService businessQuestionService,
+            AvailabilityService availabilityService,
+            BusinessBoundaryService businessBoundaryService,
+            BusinessContextResolver businessContextResolver) {
+        this.aiService = aiService;
+        this.slotFillingEngine = slotFillingEngine;
+        this.validator = validator;
+        this.businessProfileProvider = businessProfileProvider;
+        this.businessQuestionService = businessQuestionService;
+        this.availabilityService = availabilityService;
+        this.businessBoundaryService = businessBoundaryService;
+        this.businessContextResolver = businessContextResolver;
+    }
+
+    public InquiryOrchestrator(
+            AiService aiService,
+            SlotFillingEngine slotFillingEngine,
+            RequestAnalysisValidator validator,
+            BusinessProfileProvider businessProfileProvider,
+            BusinessQuestionService businessQuestionService,
+            AvailabilityService availabilityService,
+            BusinessBoundaryService businessBoundaryService) {
+        this(aiService, slotFillingEngine, validator, businessProfileProvider,
+                businessQuestionService, availabilityService, businessBoundaryService,
+                new BusinessContextResolver());
+    }
 
     public InquiryResponse process(String message) {
 
@@ -132,7 +166,7 @@ public class InquiryOrchestrator {
         if ("BUSINESS_QUESTION".equalsIgnoreCase(
                 analysis.intent())) {
 
-String answer =
+            String answer =
                     businessQuestionService.answer(
                             message,
                             businessProfile
@@ -155,7 +189,66 @@ String answer =
 
         /*
          * =========================================================
-         * 5. REQUEST NOT CLEAR
+         * 5. GENERAL QUESTION
+         * =========================================================
+         *
+         * General questions are answered by the AI using its
+         * general knowledge. They are not treated as business
+         * requests and do not create an inquiry workflow.
+         */
+        if ("OFF_TOPIC".equalsIgnoreCase(analysis.intent())) {
+            InquiryResult inquiry = new InquiryResult(
+                    businessProfile.businessType(),
+                    analysis.intent(),
+                    analysis.entities()
+            );
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.NEEDS_INFORMATION,
+                    "I’m here to help with " + businessProfile.businessName()
+                            + " and its configured services. How can I help you?"
+            );
+        }
+
+        if ("NEEDS_CLARIFICATION".equalsIgnoreCase(analysis.intent())) {
+            String clarification = aiService.clarifyCustomerQuestion(
+                    message,
+                    null,
+                    List.of()
+            );
+            return new InquiryResponse(
+                    new InquiryResult(
+                            businessProfile.businessType(),
+                            analysis.intent(),
+                            analysis.entities()
+                    ),
+                    List.of(),
+                    InquiryStatus.NEEDS_CLARIFICATION,
+                    clarification
+            );
+        }
+
+        if ("GENERAL_QUESTION".equalsIgnoreCase(analysis.intent())) {
+            String question = analysis.knowledgeQuestions().isEmpty()
+                    ? message
+                    : analysis.knowledgeQuestions().get(0);
+
+            return new InquiryResponse(
+                    new InquiryResult(
+                            businessProfile.businessType(),
+                            analysis.intent(),
+                            analysis.entities()
+                    ),
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    aiService.answerGeneralQuestion(question)
+            );
+        }
+
+        /*
+         * =========================================================
+         * 6. REQUEST NOT CLEAR
          * =========================================================
          *
          * Example:
@@ -242,9 +335,27 @@ if (boundary.message() != null) {
          * =========================================================
          */
 
+        RequestDefinition definition = businessProfile.services().stream()
+                .filter(candidate -> candidate.requestType().equalsIgnoreCase(analysis.intent()))
+                .findFirst()
+                .orElse(null);
+
+        Map<String, Object> resolvedFields = businessContextResolver.resolve(
+                definition,
+                analysis.entities(),
+                businessProfile
+        );
+
+        RequestAnalysis resolvedAnalysis = new RequestAnalysis(
+                analysis.intent(),
+                analysis.confidence(),
+                resolvedFields,
+                analysis.knowledgeQuestions()
+        );
+
         List<String> missing =
                 slotFillingEngine.findMissingSlots(
-                        analysis,
+                        resolvedAnalysis,
                         businessProfile
                 );
 
@@ -258,7 +369,7 @@ if (boundary.message() != null) {
                 new InquiryResult(
                         businessProfile.businessType(),
                         analysis.intent(),
-                        analysis.entities()
+                        resolvedAnalysis.entities()
                 );
 
         /*
@@ -309,7 +420,7 @@ if (boundary.message() != null) {
 AvailabilityResult availability =
                 availabilityService.checkAvailability(
                         analysis.intent(),
-                        analysis.entities(),
+                        resolvedAnalysis.entities(),
                         businessProfile
                 );
 
