@@ -10,7 +10,8 @@ public record RequestDefinition(
         Map<String, String> slotPrompts,
         RequestActionType actionType,
         List<String> actionRequiredSlots,
-        String availabilityStrategy
+        String availabilityStrategy,
+        Map<String, String> availabilityFields
 ) {
 
     public RequestDefinition(
@@ -34,27 +35,33 @@ public record RequestDefinition(
             List<String> requiredSlots,
             Map<String, String> slotPrompts,
             RequestActionType actionType) {
-        this(requestType, description, requiredSlots, slotPrompts, actionType, null, null);
+        this(requestType, description, requiredSlots, slotPrompts, actionType, null, null, Map.of());
+    }
+
+    public RequestDefinition(
+            String requestType,
+            String description,
+            List<String> requiredSlots,
+            Map<String, String> slotPrompts,
+            RequestActionType actionType,
+            List<String> actionRequiredSlots,
+            String availabilityStrategy) {
+        this(requestType, description, requiredSlots, slotPrompts, actionType,
+                actionRequiredSlots, availabilityStrategy, Map.of());
     }
 
     public RequestDefinition {
         requiredSlots = requiredSlots == null ? List.of() : List.copyOf(requiredSlots);
         slotPrompts = slotPrompts == null ? Map.of() : Map.copyOf(slotPrompts);
         actionType = actionType == null ? RequestActionType.BOOKING : actionType;
-
         actionRequiredSlots = actionRequiredSlots == null
                 ? List.of()
                 : List.copyOf(actionRequiredSlots);
-
-        availabilityStrategy = normalizeAvailabilityStrategy(
-                availabilityStrategy,
-                actionType
-        );
+        availabilityStrategy = normalizeAvailabilityStrategy(availabilityStrategy, actionType);
+        availabilityFields = availabilityFields == null ? Map.of() : Map.copyOf(availabilityFields);
     }
 
-    private static String normalizeAvailabilityStrategy(
-            String configured,
-            RequestActionType actionType) {
+    private static String normalizeAvailabilityStrategy(String configured, RequestActionType actionType) {
         if (configured != null && !configured.isBlank()) {
             return configured.trim().toUpperCase();
         }
