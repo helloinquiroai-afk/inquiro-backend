@@ -6,6 +6,7 @@ import com.inquiro.booking.BookingJpaRepository;
 import com.inquiro.booking.BookingStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.inquiro.booking.BookingInventoryService;
 
 import java.time.LocalDate;
@@ -18,6 +19,14 @@ public class TimeSlotBookingAvailabilityStrategy extends AbstractBookingAvailabi
 
     private static final List<BookingStatus> BLOCKING_STATUSES =
             List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
+
+    @Autowired
+    public TimeSlotBookingAvailabilityStrategy(
+            BookingJpaRepository bookingRepository,
+            BusinessScheduleAvailabilitySource scheduleSource,
+            com.inquiro.booking.BookingInventoryService inventoryService) {
+        super(bookingRepository, scheduleSource, inventoryService);
+    }
 
     public TimeSlotBookingAvailabilityStrategy(
             BookingJpaRepository bookingRepository,
@@ -63,10 +72,12 @@ public class TimeSlotBookingAvailabilityStrategy extends AbstractBookingAvailabi
                         startTime
                 );
 
-        if (!conflicts.isEmpty()) {
+        int capacity = capacityFor(businessId, service);
+        if (capacity < 1) return unknown("No booking inventory is configured for this service.");
+        if (conflicts.size() >= capacity) {
             return new AvailabilityResult(
                     AvailabilityStatus.UNAVAILABLE,
-                    "The requested time overlaps with an existing booking."
+                    "The requested time has no remaining inventory."
             );
         }
 
