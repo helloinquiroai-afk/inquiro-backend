@@ -94,11 +94,30 @@ class BusinessPlatformRegressionTest {
 
     @Test
     void channelLookupIsScopedToBusiness() {
-        BusinessChannelRepository repository = mock(BusinessChannelRepository.class);
+        BusinessChannelRepository repository = new BusinessChannelRepository() {
+            private final List<BusinessChannel> channels = List.of(
+                    new BusinessChannel(
+                            "a", "biz-a", BusinessChannelType.WEBSITE, "same-site", true),
+                    new BusinessChannel(
+                            "b", "biz-b", BusinessChannelType.WEBSITE, "other-site", true));
 
-        when(repository.findByBusinessId("biz-a")).thenReturn(List.of(
-                new BusinessChannel(
-                        "a", "biz-a", BusinessChannelType.WEBSITE, "same-site", true)));
+            @Override
+            public BusinessChannel findByTypeAndExternalId(
+                    BusinessChannelType type, String externalId) {
+                return null;
+            }
+
+            @Override
+            public List<BusinessChannel> findByBusinessId(String businessId) {
+                return channels.stream()
+                        .filter(channel -> channel.businessId().equals(businessId))
+                        .toList();
+            }
+
+            @Override
+            public void save(BusinessChannel channel) {
+            }
+        };
 
         assertNotNull(repository.findByBusinessIdAndTypeAndExternalId(
                 "biz-a", BusinessChannelType.WEBSITE, "same-site"));
