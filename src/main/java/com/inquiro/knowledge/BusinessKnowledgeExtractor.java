@@ -498,6 +498,24 @@ public class BusinessKnowledgeExtractor {
         return definitions;
     }
 
+    private Map<String, String> promptsFor(
+            List<String> slots) {
+
+        Map<String, String> prompts =
+                new LinkedHashMap<>();
+
+        for (String slot : slots) {
+            prompts.put(
+                    slot,
+                    "Could you please provide "
+                            + humanize(slot)
+                            + "?"
+            );
+        }
+
+        return prompts;
+    }
+
     private Map<String, String> bookingRules(
             ParsedKnowledge parsed) {
 
