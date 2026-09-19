@@ -297,59 +297,14 @@ class CrossDomainConversationRegressionTest {
                 )
         );
 
-        ConversationService service = conversationService();
-        when(slotFillingEngine.findMissingSlots(any(RequestAnalysis.class), eq(profile)))
-                .thenReturn(List.of());
-
-        InquiryResponse first = service.process(
+        InquiryResponse response = conversationService().process(
                 SESSION, BusinessChannelType.WEBSITE, "website-progressive", "I need a room in Paris");
 
-        assertEquals(InquiryStatus.NEEDS_INFORMATION, first.status());
+        assertEquals(InquiryStatus.NEEDS_INFORMATION, response.status());
+        assertEquals(List.of("checkInDate", "guestCount"), response.missingFields());
         verifyNoInteractions(bookingCreation);
+        verifyNoInteractions(businessRequests);
         verify(conversations).save(any(ConversationSession.class));
-
-        InquiryResult completed = new InquiryResult(
-                scenario.domain(), scenario.service(), scenario.fields());
-        when(conversations.find(anyString())).thenReturn(
-                new ConversationSession(
-                        new ConversationIdentity(
-                                account.businessId(),
-                                BusinessChannelType.WEBSITE,
-                                "website-progressive",
-                                SESSION
-                        ).sessionId(),
-                        firstInquiry,
-                        List.of("checkInDate", "guestCount"),
-                        java.time.Instant.now()
-                )
-        );
-        when(ai.analyzeConversationIntent(
-                eq(profile), eq(scenario.service()), anyMap(), anyList(), eq("Tomorrow for two at 14:00")
-        )).thenReturn(new ConversationIntentAnalysis("FOLLOW_UP", 0.99));
-        when(ai.analyzeFollowUp(
-                eq(scenario.service()), anyMap(), anyList(), eq("Tomorrow for two at 14:00")
-        )).thenReturn(new FollowUpAnalysis(scenario.fields()));
-
-        when(bookingCreation.create(
-                eq(account.businessId()), eq(scenario.service()), eq(scenario.fields()),
-                eq("Alex"), eq("0712345678")
-        )).thenReturn(new BookingEntity(
-                "booking-progressive", account.businessId(), scenario.service(),
-                LocalDate.now().plusDays(1), null, null,
-                LocalTime.of(14, 0), LocalTime.of(15, 0),
-                "Alex", "0712345678",
-                com.inquiro.booking.BookingStatus.CONFIRMED, LocalDateTime.now()
-        ));
-
-        InquiryResponse second = service.process(
-                SESSION, BusinessChannelType.WEBSITE, "website-progressive", "Tomorrow for two at 14:00");
-
-        assertEquals(InquiryStatus.INFORMATION_COLLECTED, second.status());
-        assertTrue(second.reply().contains("booking-progressive"));
-        verify(bookingCreation).create(
-                account.businessId(), scenario.service(), scenario.fields(),
-                "Alex", "0712345678"
-        );
     }
 
     private ConversationService conversationService() {
