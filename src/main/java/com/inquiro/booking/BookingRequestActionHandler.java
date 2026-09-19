@@ -48,7 +48,8 @@ public class BookingRequestActionHandler implements RequestActionHandler {
                 inquiry.service(),
                 inquiry.fields(),
                 customerName,
-                customerPhone
+                customerPhone,
+                sessionId
         );
         conversationRepository.remove(sessionId);
 
