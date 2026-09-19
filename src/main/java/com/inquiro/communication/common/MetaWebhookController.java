@@ -45,16 +45,14 @@ public class MetaWebhookController {
         if (payload.length > messengerProperties.getMaxPayloadBytes()) {
             return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).build();
         }
-        // Authenticate before parsing even for the shared legacy route.
-        boolean messengerSignature = signatures.isValid(payload, signature, messengerProperties.getAppSecret());
-        boolean whatsAppSignature = signatures.isValid(payload, signature, whatsAppProperties.getAppSecret());
-        if (!messengerSignature && !whatsAppSignature) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         try {
             var root = mapper.readTree(payload);
             if (root == null || !root.isObject()) return ResponseEntity.badRequest().build();
             if ("whatsapp_business_account".equals(root.path("object").asText())) {
                 return whatsApp.receive(payload, signature);
             }
+            // MessengerWebhookController resolves the Page credential from the recipient page
+            // and validates the signature against that encrypted per-Page app secret.
             return messenger.receive(payload, signature);
         } catch (IOException exception) {
             return ResponseEntity.badRequest().build();
