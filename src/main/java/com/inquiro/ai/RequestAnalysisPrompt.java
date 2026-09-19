@@ -55,6 +55,17 @@ public final class RequestAnalysisPrompt {
                 
                 %s
                 
+                CONFIGURED BUSINESS KNOWLEDGE SCOPE
+
+                Locations:
+                %s
+
+                Products:
+                %s
+
+                Capabilities:
+                %s
+
                 BUSINESS BOUNDARIES
                 
                 Supported:
