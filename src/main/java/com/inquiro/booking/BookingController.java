@@ -25,6 +25,7 @@ public class BookingController {
     @ResponseStatus(HttpStatus.CREATED)
     public BookingResponse createBooking(
             @PathVariable String businessId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateBookingRequest request) {
 
         validateBusinessId(businessId);
@@ -35,10 +36,42 @@ public class BookingController {
                 request.service(),
                 request.fields(),
                 request.customerName(),
-                request.customerPhone()
+                request.customerPhone(),
+                normalizeIdempotencyKey(idempotencyKey)
         );
 
         return BookingResponse.from(booking);
+    }
+
+
+    @PostMapping("/{businessId}/bookings/{bookingId}/cancel")
+    public BookingResponse cancelBooking(
+            @PathVariable String businessId,
+            @PathVariable String bookingId) {
+        validateBusinessId(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
+        BookingEntity booking = bookingCreationService.cancel(bookingId, businessId);
+        return BookingResponse.from(booking);
+    }
+
+    @PostMapping("/{businessId}/bookings/{bookingId}/hold")
+    @ResponseStatus(HttpStatus.CREATED)
+    public BookingResponse holdBooking(
+            @PathVariable String businessId,
+            @PathVariable String bookingId) {
+        validateBusinessId(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
+        BookingEntity booking = bookingCreationService.hold(bookingId, businessId);
+        return BookingResponse.from(booking);
+    }
+
+    private static String normalizeIdempotencyKey(String value) {
+        if (value == null || value.isBlank()) return null;
+        String normalized = value.trim();
+        if (normalized.length() > 200) {
+            throw new IllegalArgumentException("Idempotency-Key is too long");
+        }
+        return normalized;
     }
 
     private static void validateBusinessId(String businessId) {
