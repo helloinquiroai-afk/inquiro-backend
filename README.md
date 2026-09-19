@@ -178,6 +178,41 @@ The browser's existing localStorage identifier can still be sent unchanged. Hist
 
 See [VALIDATION.md](VALIDATION.md) for actual build and smoke-test results. Real Meta delivery is a separate external acceptance check; a mocked send test does not prove it.
 
+## Phase 42/43 — Real availability, booking, and booking reliability
+
+Phase 42/43 replaces the remaining request-only booking path with persistent, inventory-aware bookings and a transactional booking lifecycle.
+
+### Availability and inventory
+
+- Booking inventory is configured per business and service with an explicit capacity.
+- Time-slot services use overlapping active bookings against configured capacity.
+- Date-range services use check-in/check-out overlap against configured capacity.
+- Business operating hours are checked before inventory.
+- No inventory configuration means availability cannot be confirmed; Inquiro does not invent capacity.
+- The authenticated business API can configure inventory through `PUT /api/business/accounts/{businessId}/booking-inventory`.
+
+### Booking lifecycle
+
+- Completed conversational BOOKING requests now create a real `BookingEntity` and return a booking reference.
+- Direct business booking creation is available through the authenticated booking API.
+- Booking cancellation is transactional and tenant-scoped.
+- Temporary booking holds are supported with an expiration timestamp.
+- A scheduled job expires due holds automatically.
+- Active HOLD bookings reserve inventory; CANCELLED and EXPIRED bookings do not.
+- Hotel stays use date ranges and duration; point-in-time services use date/time slots.
+
+### Reliability
+
+- Booking creation is transactional.
+- The business row is pessimistically locked before availability is checked and the booking is inserted, serializing competing bookings for the same business.
+- Idempotency keys are persisted with a unique database constraint and return the original booking on safe retries.
+- Cross-business reuse of an idempotency key is rejected.
+- Inventory capacity is evaluated while the business booking transaction is protected by the business lock.
+- Booking state transitions reject invalid cancellation attempts.
+- Database migration `V3__booking.sql` creates booking and inventory persistence.
+
+Spring Data JPA supports pessimistic locking through `@Lock`; the existing business repository uses a pessimistic-write lookup so the availability check and insert occur inside the same booking transaction. citeturn0search0
+
 ## Phase 41 — Meta channel credential security
 
 Phase 41 moves Messenger Page credentials out of application configuration and into encrypted, business-owned channel credentials:
@@ -306,3 +341,7 @@ Drafts and rejection decisions are transient: there is no pending-review table, 
 This constrains answers to approved text; it is not proof that the model will always select the most relevant source. Owners should write clear, self-contained facts and resolve contradictions. Answering currently favors approved wording over unrestricted paraphrasing or translation. Up to three knowledge questions/source answers are handled per message; large/multi-part requests may need a follow-up. No inventory, automatic booking confirmation, scraping, embeddings or vector database is added.
 
 Request analysis now includes optional `knowledgeQuestions` alongside the workflow intent and entities. Conversation intent analysis distinguishes knowledge-only interruptions from workflow follow-ups containing questions. A knowledge-only question leaves the unfinished inquiry and missing fields intact. A mixed message extracts/merges the workflow details and combines the knowledge answer with the next question or pending-request receipt. If knowledge answering fails, a friendly fallback is combined with the workflow response so the workflow can continue. The public `InquiryResponse` JSON shape is unchanged; Messenger transport and delivery code are unchanged.
+
+
+#### Configuration-driven booking periods
+Booking availability is selected by service configuration. `DATE_RANGE` and `TIME_SLOT` map configured slot names into a normalized booking period, so the booking engine is not tied to hotel-specific field names.

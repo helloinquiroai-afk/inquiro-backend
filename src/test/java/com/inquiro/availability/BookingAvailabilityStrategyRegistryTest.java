@@ -65,7 +65,8 @@ class BookingAvailabilityStrategyRegistryTest {
                 String businessId,
                 String service,
                 Map<String, Object> fields,
-                com.inquiro.business.BusinessProfile businessProfile) {
+                com.inquiro.business.BusinessProfile businessProfile,
+                RequestDefinition definition) {
             return new AvailabilityResult(
                     AvailabilityStatus.CONFIRMED,
                     "stub"

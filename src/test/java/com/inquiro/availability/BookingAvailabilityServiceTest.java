@@ -1,6 +1,8 @@
 package com.inquiro.availability;
 
 import com.inquiro.business.BusinessProfile;
+import com.inquiro.request.RequestActionType;
+import com.inquiro.request.RequestDefinition;
 import com.inquiro.booking.BookingEntity;
 import com.inquiro.booking.BookingJpaRepository;
 import com.inquiro.booking.BookingStatus;
@@ -58,7 +60,7 @@ class BookingAvailabilityServiceTest {
         verify(bookingRepository).findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
                 eq(BUSINESS_ID),
                 eq(DATE),
-                eq(List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED)),
+                eq(List.of(BookingStatus.PENDING, BookingStatus.HOLD, BookingStatus.CONFIRMED)),
                 eq(END),
                 eq(START)
         );
@@ -105,7 +107,7 @@ class BookingAvailabilityServiceTest {
         verify(bookingRepository).findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
                 eq(BUSINESS_ID),
                 eq(DATE),
-                eq(List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED)),
+                eq(List.of(BookingStatus.PENDING, BookingStatus.HOLD, BookingStatus.CONFIRMED)),
                 eq(END),
                 eq(START)
         );
@@ -189,9 +191,8 @@ class BookingAvailabilityServiceTest {
                 BUSINESS_ID,
                 "ROOM_BOOKING",
                 Map.of(
-                        "checkInDate", DATE.toString(),
-                        "durationNights", 2,
-                        "time", "14:00"
+                        "arrival", DATE.toString(),
+                        "departure", DATE.plusDays(2).toString()
                 ),
                 hotelProfile()
         );
@@ -199,7 +200,7 @@ class BookingAvailabilityServiceTest {
         assertEquals(AvailabilityStatus.CONFIRMED, result.status());
         verify(bookingRepository).findByBusinessIdAndStatusIn(
                 eq(BUSINESS_ID),
-                eq(List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED))
+                eq(List.of(BookingStatus.PENDING, BookingStatus.HOLD, BookingStatus.CONFIRMED))
         );
     }
 
@@ -228,9 +229,8 @@ class BookingAvailabilityServiceTest {
                 BUSINESS_ID,
                 "ROOM_BOOKING",
                 Map.of(
-                        "checkInDate", DATE.toString(),
-                        "durationNights", 3,
-                        "time", "14:00"
+                        "arrival", DATE.toString(),
+                        "departure", DATE.plusDays(3).toString()
                 ),
                 hotelProfile()
         );
@@ -243,7 +243,19 @@ class BookingAvailabilityServiceTest {
                 "Test Hotel",
                 "HOSPITALITY",
                 "Hotel",
-                List.of(),
+                List.of(new RequestDefinition(
+                        "ROOM_BOOKING",
+                        "Book a room",
+                        List.of("arrival", "departure"),
+                        Map.of(),
+                        RequestActionType.BOOKING,
+                        List.of("arrival", "departure"),
+                        "DATE_RANGE",
+                        Map.of(
+                                "startDate", "arrival",
+                                "endDate", "departure"
+                        )
+                )),
                 new com.inquiro.business.BusinessKnowledge(
                         "Hotel",
                         List.of("ROOM_BOOKING"),

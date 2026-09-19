@@ -59,7 +59,8 @@ public class BookingAvailabilityService {
                 businessId,
                 service,
                 fields,
-                businessProfile
+                businessProfile,
+                definition
         );
     }
 

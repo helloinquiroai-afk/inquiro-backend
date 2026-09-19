@@ -62,7 +62,7 @@ class CrossDomainConversationRegressionTest {
         conversations = mock(ConversationRepository.class);
 
         actions = new RequestActionHandlerRegistry(List.of(
-                new BookingActionHandler(bookingCreation, conversations),
+                new com.inquiro.booking.BookingRequestActionHandler(bookingCreation, conversations),
                 new BusinessRequestActionHandler(businessRequests, conversations),
                 new HumanReviewActionHandler(businessRequests, conversations)
         ));
@@ -199,7 +199,8 @@ class CrossDomainConversationRegressionTest {
                     eq(scenario.service()),
                     eq(scenario.fields()),
                     eq("Alex"),
-                    eq("0712345678")
+                    eq("0712345678"),
+                    anyString()
             )).thenReturn(booking);
         }
 
@@ -217,11 +218,12 @@ class CrossDomainConversationRegressionTest {
         if (scenario.actionType() == RequestActionType.BOOKING) {
             assertTrue(response.reply().contains("booking-" + scenario.name()));
             verify(bookingCreation).create(
-                    account.businessId(),
-                    scenario.service(),
-                    scenario.fields(),
-                    "Alex",
-                    "0712345678"
+                    eq(account.businessId()),
+                    eq(scenario.service()),
+                    eq(scenario.fields()),
+                    eq("Alex"),
+                    eq("0712345678"),
+                    anyString()
             );
             verify(businessRequests, never()).create(anyString(), anyString(), anyString(), anyMap(), any());
         } else {

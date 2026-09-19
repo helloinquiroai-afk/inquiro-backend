@@ -1,24 +1,21 @@
-package com.inquiro.request;
+package com.inquiro.booking;
 
 import com.inquiro.business.BusinessAccount;
-import com.inquiro.booking.BookingCreationService;
-import com.inquiro.booking.BookingEntity;
 import com.inquiro.conversation.ConversationRepository;
 import com.inquiro.inquiry.InquiryResponse;
 import com.inquiro.inquiry.InquiryResult;
 import com.inquiro.inquiry.InquiryStatus;
-import org.springframework.stereotype.Component;
-import org.springframework.web.server.ResponseStatusException;
-
+import com.inquiro.request.RequestActionHandler;
+import com.inquiro.request.RequestActionType;
 import java.util.List;
+import org.springframework.stereotype.Component;
 
 @Component
-public class BookingActionHandler implements RequestActionHandler {
-
+public class BookingRequestActionHandler implements RequestActionHandler {
     private final BookingCreationService bookingCreationService;
     private final ConversationRepository conversationRepository;
 
-    public BookingActionHandler(
+    public BookingRequestActionHandler(
             BookingCreationService bookingCreationService,
             ConversationRepository conversationRepository) {
         this.bookingCreationService = bookingCreationService;
@@ -35,44 +32,40 @@ public class BookingActionHandler implements RequestActionHandler {
             BusinessAccount businessAccount,
             String sessionId,
             InquiryResult inquiry) {
-
         String customerName = value(inquiry, "customerName");
         String customerPhone = value(inquiry, "customerPhone");
-
-        try {
-            BookingEntity booking = bookingCreationService.create(
-                    businessAccount.businessId(),
-                    inquiry.service(),
-                    inquiry.fields(),
-                    customerName,
-                    customerPhone
-            );
-
-            conversationRepository.remove(sessionId);
-
+        if (customerName == null || customerPhone == null) {
             return new InquiryResponse(
                     inquiry,
-                    List.of(),
-                    InquiryStatus.INFORMATION_COLLECTED,
-                    "Your booking has been confirmed. Booking ID: " + booking.getBookingId() + ".",
-                    booking.getBookingId()
+                    List.of("customerName", "customerPhone"),
+                    InquiryStatus.NEEDS_INFORMATION,
+                    "Please provide your name and phone number."
             );
-        } catch (ResponseStatusException exception) {
-            conversationRepository.remove(sessionId);
-            throw exception;
         }
 
+        BookingEntity booking = bookingCreationService.create(
+                businessAccount.businessId(),
+                inquiry.service(),
+                inquiry.fields(),
+                customerName,
+                customerPhone,
+                sessionId
+        );
+        conversationRepository.remove(sessionId);
 
+        return new InquiryResponse(
+                inquiry,
+                List.of(),
+                InquiryStatus.INFORMATION_COLLECTED,
+                "Your booking is confirmed. Booking reference: " + booking.getBookingId(),
+                "",
+                booking.getBookingId()
+        );
     }
 
     private String value(InquiryResult inquiry, String key) {
-        if (inquiry == null || inquiry.fields() == null) {
-            return null;
-        }
-        Object value = inquiry.fields().get(key);
-        if (value == null) {
-            return null;
-        }
+        Object value = inquiry.fields() == null ? null : inquiry.fields().get(key);
+        if (value == null) return null;
         String text = String.valueOf(value).trim();
         return text.isEmpty() ? null : text;
     }

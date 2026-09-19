@@ -23,29 +23,29 @@ public class BookingAvailabilityStrategyRegistry {
     }
 
     public BookingAvailabilityStrategy strategyFor(RequestDefinition definition) {
-        if (definition == null || definition.availabilityStrategy() == null) {
-            return null;
-        }
+        if (definition == null || definition.availabilityStrategy() == null) return null;
         return strategyFor(definition.availabilityStrategy());
     }
 
-    public BookingAvailabilityStrategy strategyFor(
-            RequestDefinition definition,
-            Map<String, Object> fields) {
-
+    public BookingAvailabilityStrategy strategyFor(RequestDefinition definition, Map<String, Object> fields) {
         if (definition != null
                 && definition.availabilityStrategy() != null
                 && !"AUTO".equalsIgnoreCase(definition.availabilityStrategy())) {
-            BookingAvailabilityStrategy configured = strategyFor(definition);
-            if (configured != null) {
-                return configured;
+            return strategyFor(definition.availabilityStrategy());
+        }
+
+        // AUTO remains backward compatible, but new configurations should explicitly
+        // select DATE_RANGE or TIME_SLOT rather than relying on field-name conventions.
+        if (definition != null && definition.availabilityFields() != null) {
+            String configuredStrategy = definition.availabilityStrategy();
+            if (configuredStrategy != null && !"AUTO".equalsIgnoreCase(configuredStrategy)) {
+                return strategyFor(configuredStrategy);
             }
         }
 
-        if (fields != null &&
-                (fields.containsKey("durationNights")
-                        || fields.containsKey("checkOutDate")
-                        || fields.containsKey("checkInDate"))) {
+        if (fields != null && (fields.containsKey("durationNights")
+                || fields.containsKey("checkOutDate")
+                || fields.containsKey("checkInDate"))) {
             return strategyFor("DATE_RANGE");
         }
 

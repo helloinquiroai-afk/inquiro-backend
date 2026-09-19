@@ -4,6 +4,9 @@ import com.inquiro.business.BusinessProfile;
 import com.inquiro.booking.BookingEntity;
 import com.inquiro.booking.BookingJpaRepository;
 import com.inquiro.booking.BookingStatus;
+import com.inquiro.booking.BookingInventoryService;
+import com.inquiro.request.RequestDefinition;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -15,7 +18,15 @@ import java.util.Map;
 public class TimeSlotBookingAvailabilityStrategy extends AbstractBookingAvailabilityStrategy {
 
     private static final List<BookingStatus> BLOCKING_STATUSES =
-            List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
+            List.of(BookingStatus.PENDING, BookingStatus.HOLD, BookingStatus.CONFIRMED);
+
+    @Autowired
+    public TimeSlotBookingAvailabilityStrategy(
+            BookingJpaRepository bookingRepository,
+            BusinessScheduleAvailabilitySource scheduleSource,
+            BookingInventoryService inventoryService) {
+        super(bookingRepository, scheduleSource, inventoryService);
+    }
 
     public TimeSlotBookingAvailabilityStrategy(
             BookingJpaRepository bookingRepository,
@@ -33,20 +44,25 @@ public class TimeSlotBookingAvailabilityStrategy extends AbstractBookingAvailabi
             String businessId,
             String service,
             Map<String, Object> fields,
-            BusinessProfile businessProfile) {
+            BusinessProfile businessProfile,
+            RequestDefinition definition) {
 
-        AvailabilityResult schedule = checkSchedule(service, fields, businessProfile);
-        if (schedule.status() != AvailabilityStatus.CONFIRMED) {
-            return schedule;
-        }
+        Map<String, Object> mapped = mapFields(fields, definition, Map.of(
+                "date", "date",
+                "startTime", "time",
+                "endTime", "endTime"
+        ));
 
-        LocalDate date = parseDate(firstValue(fields, "date", "checkInDate"));
-        LocalTime startTime = parseTime(value(fields, "time"));
+        AvailabilityResult schedule = checkSchedule(service, mapped, businessProfile);
+        if (schedule.status() != AvailabilityStatus.CONFIRMED) return schedule;
+
+        LocalDate date = parseDate(value(mapped, "date"));
+        LocalTime startTime = parseTime(value(mapped, "startTime"));
         if (date == null || startTime == null) {
-            return unknown("A valid date and time are required to check booking availability.");
+            return unknown("A valid booking date and start time are required.");
         }
 
-        LocalTime endTime = parseTime(value(fields, "endTime"));
+        LocalTime endTime = parseTime(value(mapped, "endTime"));
         if (endTime == null) endTime = startTime.plusHours(1);
         if (!startTime.isBefore(endTime)) {
             return unknown("The requested end time must be after the start time.");
@@ -54,23 +70,21 @@ public class TimeSlotBookingAvailabilityStrategy extends AbstractBookingAvailabi
 
         List<BookingEntity> conflicts =
                 bookingRepository.findByBusinessIdAndBookingDateAndStatusInAndStartTimeLessThanAndEndTimeGreaterThan(
-                        businessId,
-                        date,
-                        BLOCKING_STATUSES,
-                        endTime,
-                        startTime
-                );
+                        businessId, date, BLOCKING_STATUSES, endTime, startTime);
 
-        if (!conflicts.isEmpty()) {
+        int capacity = capacityFor(businessId, service);
+        if (capacity < 1) return unknown("No booking inventory is configured for this service.");
+        if (conflicts.size() >= capacity) {
             return new AvailabilityResult(
                     AvailabilityStatus.UNAVAILABLE,
-                    "The requested time overlaps with an existing booking."
+                    "The requested time has no remaining inventory."
             );
         }
 
         return new AvailabilityResult(
                 AvailabilityStatus.CONFIRMED,
-                "The requested time is available for booking."
+                "The requested time is available for booking.",
+                new AvailabilityResult.BookingPeriod(date, null, startTime, endTime)
         );
     }
 }

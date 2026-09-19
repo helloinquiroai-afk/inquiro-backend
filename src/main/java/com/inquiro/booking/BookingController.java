@@ -25,25 +25,74 @@ public class BookingController {
     @ResponseStatus(HttpStatus.CREATED)
     public BookingResponse createBooking(
             @PathVariable String businessId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateBookingRequest request) {
 
         validateBusinessId(businessId);
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
 
         BookingEntity booking = bookingCreationService.create(
                 businessId,
                 request.service(),
                 request.fields(),
                 request.customerName(),
-                request.customerPhone()
+                request.customerPhone(),
+                normalizeIdempotencyKey(idempotencyKey)
         );
 
         return BookingResponse.from(booking);
     }
 
+
+    @PostMapping("/{businessId}/booking-holds")
+    @ResponseStatus(HttpStatus.CREATED)
+    public BookingResponse createHold(
+            @PathVariable String businessId,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody CreateHoldRequest request) {
+        validateBusinessId(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
+        BookingEntity booking = bookingCreationService.createHold(
+                businessId, request.service(), request.fields(),
+                request.customerName(), request.customerPhone(),
+                normalizeIdempotencyKey(idempotencyKey), request.holdMinutes());
+        return BookingResponse.from(booking);
+    }
+
+    @PostMapping("/{businessId}/bookings/{bookingId}/cancel")
+    public BookingResponse cancelBooking(
+            @PathVariable String businessId,
+            @PathVariable String bookingId) {
+        validateBusinessId(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
+        BookingEntity booking = bookingCreationService.cancel(bookingId, businessId);
+        return BookingResponse.from(booking);
+    }
+
+    private static String normalizeIdempotencyKey(String value) {
+        if (value == null || value.isBlank()) return null;
+        String normalized = value.trim();
+        if (normalized.length() > 200) {
+            throw new IllegalArgumentException("Idempotency-Key is too long");
+        }
+        return normalized;
+    }
+
     private static void validateBusinessId(String businessId) {
         if (businessId == null || !businessId.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")) {
             throw new IllegalArgumentException("Invalid business ID");
+        }
+    }
+
+    public record CreateHoldRequest(
+            @NotBlank String service,
+            Map<String, Object> fields,
+            @NotBlank @Size(max = 200) String customerName,
+            @NotBlank @Size(max = 50) String customerPhone,
+            @jakarta.validation.constraints.Min(1) @jakarta.validation.constraints.Max(1440) int holdMinutes
+    ) {
+        public CreateHoldRequest {
+            fields = fields == null ? Map.of() : Map.copyOf(fields);
         }
     }
 
