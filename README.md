@@ -341,3 +341,7 @@ Drafts and rejection decisions are transient: there is no pending-review table, 
 This constrains answers to approved text; it is not proof that the model will always select the most relevant source. Owners should write clear, self-contained facts and resolve contradictions. Answering currently favors approved wording over unrestricted paraphrasing or translation. Up to three knowledge questions/source answers are handled per message; large/multi-part requests may need a follow-up. No inventory, automatic booking confirmation, scraping, embeddings or vector database is added.
 
 Request analysis now includes optional `knowledgeQuestions` alongside the workflow intent and entities. Conversation intent analysis distinguishes knowledge-only interruptions from workflow follow-ups containing questions. A knowledge-only question leaves the unfinished inquiry and missing fields intact. A mixed message extracts/merges the workflow details and combines the knowledge answer with the next question or pending-request receipt. If knowledge answering fails, a friendly fallback is combined with the workflow response so the workflow can continue. The public `InquiryResponse` JSON shape is unchanged; Messenger transport and delivery code are unchanged.
+
+
+#### Configuration-driven booking periods
+Booking availability is selected by service configuration. `DATE_RANGE` and `TIME_SLOT` map configured slot names into a normalized booking period, so the booking engine is not tied to hotel-specific field names.
