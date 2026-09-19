@@ -149,7 +149,7 @@ public class ConversationService {
                     session.getInquiry(),
                     session.getMissingFields(),
                     InquiryStatus.NEEDS_INFORMATION,
-                    buildBusinessScopeReply(profile, session.getInquiry().service())
+                    buildBusinessScopeReply(profile, session.getInquiry().service(), session.getMissingFields())
             );
         }
 
@@ -302,23 +302,15 @@ public class ConversationService {
         return !"UNKNOWN".equalsIgnoreCase(service) && !"GREETING".equalsIgnoreCase(service) && !"BUSINESS_QUESTION".equalsIgnoreCase(service);
     }
 
-    private String buildBusinessScopeReply(BusinessProfile profile, String service) {
-        String businessName = profile.businessName();
-        String next = buildReply(
-                sessionMissingPlaceholder(profile, service),
-                profile,
-                service
-        );
-        return "I’m here to help with " + businessName + " and its configured services. " + next;
-    }
-
-    private List<String> sessionMissingPlaceholder(BusinessProfile profile, String service) {
-        // This helper is replaced at the call site with the active session's missing fields.
-        return profile.services().stream()
-                .filter(candidate -> candidate.requestType().equalsIgnoreCase(service))
-                .findFirst()
-                .map(RequestDefinition::requiredSlots)
-                .orElse(List.of());
+    private String buildBusinessScopeReply(
+            BusinessProfile profile,
+            String service,
+            List<String> missingFields) {
+        String next = missingFields == null || missingFields.isEmpty()
+                ? "How can I help you?"
+                : buildReply(missingFields, profile, service);
+        return "I’m here to help with " + profile.businessName()
+                + " and its configured services. " + next;
     }
 
     private String buildReply(List<String> missingFields, BusinessProfile profile, String service) {
