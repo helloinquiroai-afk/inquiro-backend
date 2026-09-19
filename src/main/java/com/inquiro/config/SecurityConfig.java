@@ -43,7 +43,7 @@ public class SecurityConfig {
 
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource("")))
                 .httpBasic(httpBasic -> httpBasic.disable())
                 .formLogin(formLogin -> formLogin.disable())
                 .logout(logout -> logout.disable())
@@ -51,8 +51,7 @@ public class SecurityConfig {
                 .headers(headers -> headers
                         .frameOptions(frame -> frame.sameOrigin())
                         .contentTypeOptions(content -> {})
-                        .referrerPolicy(referrer -> referrer.policy(
-                                org.springframework.security.config.http.headers.ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+                        // Referrer policy is configured at the ingress/reverse-proxy layer.
                         .httpStrictTransportSecurity(hsts -> hsts
                                 .includeSubDomains(true)
                                 .preload(false)))
