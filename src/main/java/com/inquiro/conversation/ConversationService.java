@@ -185,6 +185,19 @@ public class ConversationService {
                     "Your request has been received.");
         }
 
+        // Compatibility path for callers that use the legacy availability service.
+        // The production constructor uses BookingCreationService and follows the
+        // configured RequestActionType below.
+        if (bookingCreationService == null) {
+            AvailabilityResult availability = legacyAvailabilityService.checkAvailability(
+                    inquiry.service(), inquiry.fields(), businessAccount.profile());
+            businessRequestService.create(
+                    businessAccount.businessId(), sessionId, inquiry.service(), inquiry.fields(), availability.status());
+            conversationRepository.remove(sessionId);
+            return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
+                    availability.message() == null ? "Thank you." : availability.message());
+        }
+
         if (definition.actionType() == RequestActionType.HUMAN_REVIEW) {
             businessRequestService.createForHumanReview(
                     businessAccount.businessId(), sessionId, inquiry.service(), inquiry.fields());
@@ -200,14 +213,6 @@ public class ConversationService {
             conversationRepository.remove(sessionId);
             return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
                     "Your request has been received.");
-        }
-
-        if (bookingCreationService == null) {
-            AvailabilityResult availability = legacyAvailabilityService.checkAvailability(inquiry.service(), inquiry.fields(), businessAccount.profile());
-            businessRequestService.create(businessAccount.businessId(), sessionId, inquiry.service(), inquiry.fields(), availability.status());
-            conversationRepository.remove(sessionId);
-            return new InquiryResponse(inquiry, List.of(), InquiryStatus.INFORMATION_COLLECTED,
-                    availability.message() == null ? "Thank you." : availability.message());
         }
 
         String customerName = value(inquiry.fields(), CUSTOMER_NAME);
