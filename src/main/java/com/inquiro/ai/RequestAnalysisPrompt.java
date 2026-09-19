@@ -148,6 +148,9 @@ public final class RequestAnalysisPrompt {
                         businessProfile.businessType(),
                         businessProfile.description(),
                         services,
+                        businessProfile.knowledge().locations(),
+                        businessProfile.knowledge().products(),
+                        businessProfile.knowledge().capabilities(),
                         businessProfile.knowledge().boundaries().supported(),
                         businessProfile.knowledge().boundaries().notSupported(),
                         businessProfile.knowledge().boundaries().requiresHuman()
