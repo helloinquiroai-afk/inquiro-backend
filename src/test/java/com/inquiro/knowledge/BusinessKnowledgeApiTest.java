@@ -164,7 +164,7 @@ class BusinessKnowledgeApiTest {
     }
 
     @Test void ingestionPersistsWithoutFacebookIdAndDoesNotEraseExistingSections() throws Exception {
-        mvc.perform(post("/api/knowledge/ingest").header("X-Inquiro-Management-Key", "test-management-key")
+        mvc.perform(post("/api/knowledge/ingest").header("Authorization", "Bearer " + token)
                 .contentType("application/json").content(mapper.writeValueAsString(Map.of(
                         "businessId", "knowledge-test", "source", "TEXT", "content", "Phone: \nEmail: desk@example.test"))))
                 .andExpect(status().isOk());
