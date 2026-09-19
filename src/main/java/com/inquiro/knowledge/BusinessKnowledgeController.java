@@ -33,7 +33,7 @@ public class BusinessKnowledgeController {
 
     @PostMapping("/faq-suggestions")
     public List<FaqSuggestion> suggest(@PathVariable String businessId) {
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
         return service.suggest(businessId);
     }
 
