@@ -54,17 +54,6 @@ public class BookingController {
         return BookingResponse.from(booking);
     }
 
-    @PostMapping("/{businessId}/bookings/{bookingId}/hold")
-    @ResponseStatus(HttpStatus.CREATED)
-    public BookingResponse holdBooking(
-            @PathVariable String businessId,
-            @PathVariable String bookingId) {
-        validateBusinessId(businessId);
-        tenantAuthorization.requireBusinessWriteAccess(businessId);
-        BookingEntity booking = bookingCreationService.hold(bookingId, businessId);
-        return BookingResponse.from(booking);
-    }
-
     private static String normalizeIdempotencyKey(String value) {
         if (value == null || value.isBlank()) return null;
         String normalized = value.trim();
