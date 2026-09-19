@@ -6,6 +6,7 @@ import com.inquiro.business.BusinessBoundaries;
 import com.inquiro.business.BusinessKnowledge;
 import com.inquiro.business.BusinessProfile;
 import com.inquiro.request.RequestDefinition;
+import com.inquiro.request.RequestActionType;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -478,12 +479,18 @@ public class BusinessKnowledgeExtractor {
                         );
             }
 
+            RequestActionType actionType =
+                    bookingRequired
+                            ? RequestActionType.BOOKING
+                            : RequestActionType.BUSINESS_REQUEST;
+
             definitions.add(
                     new RequestDefinition(
                             serviceCode(service),
                             service,
                             requiredSlots,
-                            promptsFor(requiredSlots)
+                            promptsFor(requiredSlots),
+                            actionType
                     )
             );
         }
