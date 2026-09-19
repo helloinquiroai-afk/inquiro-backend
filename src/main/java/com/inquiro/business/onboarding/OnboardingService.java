@@ -100,6 +100,58 @@ public class OnboardingService {
         );
     }
 
+    public List<OnboardingStep> getOnboardingSteps(String businessId) {
+
+        OnboardingSummary summary = getOnboardingSummary(businessId);
+
+        if (summary == null) {
+            return List.of();
+        }
+
+        return List.of(
+                new OnboardingStep(
+                        "BUSINESS_INFORMATION",
+                        "Business information",
+                        "Configure the business name and business type.",
+                        summary.businessInformationComplete(),
+                        List.of("BUSINESS_INFORMATION")
+                                .stream()
+                                .filter(key -> summary.missingRequirements().contains(key))
+                                .toList()
+                ),
+                new OnboardingStep(
+                        "SERVICES",
+                        "Services",
+                        "Define the services the receptionist can handle.",
+                        summary.servicesConfigured(),
+                        List.of("SERVICES")
+                                .stream()
+                                .filter(key -> summary.missingRequirements().contains(key))
+                                .toList()
+                ),
+                new OnboardingStep(
+                        "KNOWLEDGE",
+                        "Business knowledge",
+                        "Provide approved information, policies, FAQs, hours and other facts.",
+                        summary.knowledgeConfigured(),
+                        List.of("KNOWLEDGE")
+                                .stream()
+                                .filter(key -> summary.missingRequirements().contains(key))
+                                .toList()
+                ),
+                new OnboardingStep(
+                        "CHANNEL",
+                        "Channel",
+                        "Connect at least one enabled customer communication channel.",
+                        summary.channelConfigured(),
+                        List.of("CHANNEL")
+                                .stream()
+                                .filter(key -> summary.missingRequirements().contains(key))
+                                .toList()
+                )
+        );
+    }
+
     private boolean isBusinessInformationComplete(
             BusinessProfile profile) {
 
