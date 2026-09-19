@@ -8,6 +8,7 @@ import com.inquiro.inquiry.InquiryResponse;
 import com.inquiro.inquiry.InquiryResult;
 import com.inquiro.inquiry.InquiryStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -38,23 +39,30 @@ public class BookingActionHandler implements RequestActionHandler {
         String customerName = value(inquiry, "customerName");
         String customerPhone = value(inquiry, "customerPhone");
 
-        BookingEntity booking = bookingCreationService.create(
-                businessAccount.businessId(),
-                inquiry.service(),
-                inquiry.fields(),
-                customerName,
-                customerPhone
-        );
+        try {
+            BookingEntity booking = bookingCreationService.create(
+                    businessAccount.businessId(),
+                    inquiry.service(),
+                    inquiry.fields(),
+                    customerName,
+                    customerPhone
+            );
 
-        conversationRepository.remove(sessionId);
+            conversationRepository.remove(sessionId);
 
-        return new InquiryResponse(
-                inquiry,
-                List.of(),
-                InquiryStatus.INFORMATION_COLLECTED,
-                "Your booking has been confirmed. Booking ID: " + booking.getBookingId() + ".",
-                booking.getBookingId()
-        );
+            return new InquiryResponse(
+                    inquiry,
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    "Your booking has been confirmed. Booking ID: " + booking.getBookingId() + ".",
+                    booking.getBookingId()
+            );
+        } catch (ResponseStatusException exception) {
+            conversationRepository.remove(sessionId);
+            throw exception;
+        }
+
+
     }
 
     private String value(InquiryResult inquiry, String key) {
