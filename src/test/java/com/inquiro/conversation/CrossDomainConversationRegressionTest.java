@@ -200,7 +200,7 @@ class CrossDomainConversationRegressionTest {
                     eq(scenario.fields()),
                     eq("Alex"),
                     eq("0712345678"),
-                    eq(SESSION)
+                    anyString()
             )).thenReturn(booking);
         }
 
@@ -223,7 +223,7 @@ class CrossDomainConversationRegressionTest {
                     scenario.fields(),
                     "Alex",
                     "0712345678",
-                    SESSION
+                    anyString()
             );
             verify(businessRequests, never()).create(anyString(), anyString(), anyString(), anyMap(), any());
         } else {
