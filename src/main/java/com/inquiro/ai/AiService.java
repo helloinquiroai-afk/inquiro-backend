@@ -45,4 +45,6 @@ public interface AiService {
             String customerQuestion,
             BusinessProfile businessProfile
     );
+
+    String answerGeneralQuestion(String customerQuestion);
 }
