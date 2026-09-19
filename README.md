@@ -178,6 +178,27 @@ The browser's existing localStorage identifier can still be sent unchanged. Hist
 
 See [VALIDATION.md](VALIDATION.md) for actual build and smoke-test results. Real Meta delivery is a separate external acceptance check; a mocked send test does not prove it.
 
+## Phase 41 — Meta channel credential security
+
+Phase 41 moves Messenger Page credentials out of application configuration and into encrypted, business-owned channel credentials:
+
+- Messenger Page access tokens, app secrets, and verification tokens are encrypted at rest with AES-256-GCM.
+- Credentials are stored in the `channel_credential` table keyed to the business channel; plaintext secrets are never returned by the API.
+- Credential replacement rotates the encrypted value and records a key version; DELETE revokes the stored credentials.
+- A current and optional previous encryption key can coexist during key rotation. After re-encrypting all credentials, the previous key can be removed.
+- Messenger webhook signatures are resolved from the recipient Page's configured credentials before the event is accepted.
+- Messenger outbound delivery resolves the access token by Page/channel, preventing one Page credential from being used for another Page.
+- Credential status endpoints expose only whether credentials are configured.
+- Customer-facing channel credentials are never accepted through the management key.
+- Production must set `INQUIRO_CREDENTIAL_ENCRYPTION_KEY` to a base64-encoded 32-byte AES-256 key and keep it in a secret manager.
+
+Key rotation procedure:
+
+1. Set the new key as `INQUIRO_CREDENTIAL_ENCRYPTION_KEY`.
+2. Set the previous key as `INQUIRO_CREDENTIAL_ENCRYPTION_KEY_PREVIOUS`.
+3. Update each channel's credentials through the authenticated owner/admin endpoint. Updated credentials are encrypted with the current key.
+4. Verify all channels have been rotated, then remove the previous key.
+
 ## Phase 40 — Production security and multi-tenancy hardening
 
 Phase 40 makes tenant authorization the normal security boundary for business-management APIs:
