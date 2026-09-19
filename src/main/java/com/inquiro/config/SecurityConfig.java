@@ -61,7 +61,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/conversations/**", "/api/chat", "/webhook", "/messenger/webhook",
                                 "/whatsapp/webhook").permitAll()
                         .requestMatchers("/api/auth/logout").authenticated()
-                        .requestMatchers("/api/test/**", "/h2-console/**").hasRole("OPERATOR")
+                        .requestMatchers("/api/test/**", "/api/knowledge/**", "/h2-console/**").hasRole("OPERATOR")
                         .requestMatchers("/api/business/**").authenticated()
                         .anyRequest().denyAll())
                 .exceptionHandling(exceptions -> exceptions
