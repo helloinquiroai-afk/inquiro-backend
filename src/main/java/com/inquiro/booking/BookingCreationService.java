@@ -142,6 +142,25 @@ public class BookingCreationService {
         return bookingRepository.save(booking);
     }
 
+
+    @Transactional
+    public BookingEntity cancel(String bookingId, String businessId) {
+        BookingEntity booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found"));
+        if (!businessId.equals(booking.getBusinessId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found");
+        }
+        if (booking.getStatus() == BookingStatus.CANCELLED) return booking;
+        if (booking.getStatus() == BookingStatus.EXPIRED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking has expired");
+        }
+        if (booking.getStatus() != BookingStatus.CONFIRMED && booking.getStatus() != BookingStatus.HOLD) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Booking cannot be cancelled from status " + booking.getStatus());
+        }
+        booking.setStatus(BookingStatus.CANCELLED);
+        return bookingRepository.save(booking);
+    }
+
     private boolean hasAny(Map<String, Object> fields, String... keys) {
         if (fields == null) return false;
         for (String key : keys) {
