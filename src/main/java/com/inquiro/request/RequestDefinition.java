@@ -15,7 +15,7 @@ public record RequestDefinition(
             String requestType,
             String description,
             List<String> requiredSlots) {
-        this(requestType, description, requiredSlots, Map.of(), RequestActionType.BOOKING);
+        this(requestType, description, requiredSlots, Map.of(), RequestActionType.BUSINESS_REQUEST);
     }
 
     public RequestDefinition(
@@ -23,7 +23,7 @@ public record RequestDefinition(
             String description,
             List<String> requiredSlots,
             Map<String, String> slotPrompts) {
-        this(requestType, description, requiredSlots, slotPrompts, RequestActionType.BOOKING);
+        this(requestType, description, requiredSlots, slotPrompts, RequestActionType.BUSINESS_REQUEST);
     }
 
     public RequestDefinition {
