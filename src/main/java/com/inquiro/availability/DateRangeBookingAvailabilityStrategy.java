@@ -75,13 +75,18 @@ public class DateRangeBookingAvailabilityStrategy extends AbstractBookingAvailab
             return unknown("A valid booking start date and end date (or duration) are required.");
         }
 
+        final LocalDate requestedStartDate = startDate;
+        final LocalDate requestedEndDate = endDate;
+
         int capacity = capacityFor(businessId, service);
         if (capacity < 1) return unknown("No booking inventory is configured for this service.");
 
         List<BookingEntity> bookings =
                 bookingRepository.findByBusinessIdAndStatusIn(businessId, BLOCKING_STATUSES);
 
-        long conflicts = bookings.stream().filter(booking -> overlaps(startDate, endDate, booking)).count();
+        long conflicts = bookings.stream()
+                .filter(booking -> overlaps(requestedStartDate, requestedEndDate, booking))
+                .count();
         if (conflicts >= capacity) {
             return new AvailabilityResult(
                     AvailabilityStatus.UNAVAILABLE,
