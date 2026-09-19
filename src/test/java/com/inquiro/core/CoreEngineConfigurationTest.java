@@ -96,6 +96,6 @@ class CoreEngineConfigurationTest {
         RequestDefinition definition = profile.services().get(0);
         assertEquals(RequestActionType.BOOKING, definition.actionType());
         assertEquals("AUTO", definition.availabilityStrategy());
-        assertEquals(List.of("customerName", "customerPhone"), definition.actionRequiredSlots());
+        assertTrue(definition.actionRequiredSlots().isEmpty());
     }
 }
