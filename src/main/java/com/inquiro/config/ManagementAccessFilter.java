@@ -37,14 +37,26 @@ public class ManagementAccessFilter extends OncePerRequestFilter {
             path = request.getRequestURI();
         }
 
-        return !(path.equals("/api/business")
-                || path.startsWith("/api/business/")
+        return !isProtectedManagementPath(path);
+    }
+
+    private boolean isProtectedManagementPath(String path) {
+        return path.equals("/api/test")
+                || path.startsWith("/api/test/")
                 || path.equals("/api/knowledge")
                 || path.startsWith("/api/knowledge/")
-                || path.equals("/api/test")
-                || path.startsWith("/api/test/")
                 || path.equals("/h2-console")
-                || path.startsWith("/h2-console/"));
+                || path.startsWith("/h2-console/");
+    }
+
+    private boolean isOperatorOnlyPath(HttpServletRequest request) {
+        String path = request.getServletPath();
+        return path.equals("/api/test")
+                || path.startsWith("/api/test/")
+                || path.equals("/api/knowledge")
+                || path.startsWith("/api/knowledge/")
+                || path.equals("/h2-console")
+                || path.startsWith("/h2-console/");
     }
 
     @Override
@@ -54,8 +66,12 @@ public class ManagementAccessFilter extends OncePerRequestFilter {
             FilterChain chain)
             throws ServletException, IOException {
 
-        // Internal/operator authentication
-        if (verifier.tokenMatches(
+        // Management-key access is disabled when no operator key is configured.
+        // It is deliberately restricted to the small internal/test surface; business
+        // endpoints must use tenant-scoped bearer authentication.
+        if (!key.isBlank()
+                && isOperatorOnlyPath(request)
+                && verifier.tokenMatches(
                 key,
                 request.getHeader("X-Inquiro-Management-Key"))) {
 
@@ -78,13 +94,13 @@ public class ManagementAccessFilter extends OncePerRequestFilter {
             return;
         }
 
-        // Business-user authentication is handled by BearerTokenAuthenticationFilter.
+        // Bearer authentication is handled by BearerTokenAuthenticationFilter.
+        // Do not bypass Spring Security for arbitrary business endpoints merely
+        // because an Authorization header exists.
         String authorization = request.getHeader("Authorization");
 
         if (authorization != null
-                && authorization.regionMatches(
-                true, 0, "Bearer ", 0, 7)) {
-
+                && authorization.regionMatches(true, 0, "Bearer ", 0, 7)) {
             chain.doFilter(request, response);
             return;
         }

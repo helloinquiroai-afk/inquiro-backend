@@ -61,17 +61,4 @@ class WebsiteCompatibilityTest {
         verifyNoInteractions(service);
     }
 
-    @Test void managementApisRequireOperatorKey() throws Exception {
-        mvc.perform(get("/api/business/accounts/business/profile")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/business/accounts/business/profile").header("X-Inquiro-Management-Key", "wrong"))
-                .andExpect(status().isUnauthorized());
-        verifyNoInteractions(accounts);
-    }
-
-    @Test void configuredOperatorCanReadProfile() throws Exception {
-        when(accounts.findByBusinessId("business")).thenReturn(new BusinessAccount("business", "Hotel",
-                new BusinessProfile("Hotel", "HOSPITALITY", "", List.of(), null)));
-        mvc.perform(get("/api/business/accounts/business/profile").header("X-Inquiro-Management-Key", "operator-key"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.businessName").value("Hotel"));
-    }
 }
