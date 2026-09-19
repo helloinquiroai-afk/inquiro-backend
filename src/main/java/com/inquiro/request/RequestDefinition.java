@@ -34,15 +34,7 @@ public record RequestDefinition(
             List<String> requiredSlots,
             Map<String, String> slotPrompts,
             RequestActionType actionType) {
-        this(
-                requestType,
-                description,
-                requiredSlots,
-                slotPrompts,
-                actionType,
-                null,
-                null
-        );
+        this(requestType, description, requiredSlots, slotPrompts, actionType, null, null);
     }
 
     public RequestDefinition {
@@ -51,33 +43,38 @@ public record RequestDefinition(
         actionType = actionType == null ? RequestActionType.BOOKING : actionType;
 
         if (actionRequiredSlots == null) {
-            actionRequiredSlots = actionType == RequestActionType.BOOKING
-                    ? List.of("time", "customerName", "customerPhone")
-                    : List.of();
+            actionRequiredSlots = defaultActionRequiredSlots(actionType, requiredSlots);
         } else {
             actionRequiredSlots = List.copyOf(actionRequiredSlots);
         }
 
         availabilityStrategy = normalizeAvailabilityStrategy(
                 availabilityStrategy,
-                actionType,
-                requiredSlots
+                actionType
         );
+    }
+
+    private static List<String> defaultActionRequiredSlots(
+            RequestActionType actionType,
+            List<String> requiredSlots) {
+        if (actionType != RequestActionType.BOOKING) {
+            return List.of();
+        }
+        boolean dateRange = requiredSlots.stream().anyMatch(slot ->
+                "checkInDate".equalsIgnoreCase(slot)
+                        || "checkOutDate".equalsIgnoreCase(slot)
+                        || "durationNights".equalsIgnoreCase(slot));
+        return dateRange
+                ? List.of("customerName", "customerPhone")
+                : List.of("time", "customerName", "customerPhone");
     }
 
     private static String normalizeAvailabilityStrategy(
             String configured,
-            RequestActionType actionType,
-            List<String> requiredSlots) {
-
+            RequestActionType actionType) {
         if (configured != null && !configured.isBlank()) {
             return configured.trim().toUpperCase();
         }
-
-        if (actionType != RequestActionType.BOOKING) {
-            return "NONE";
-        }
-
-        return "AUTO";
+        return actionType == RequestActionType.BOOKING ? "AUTO" : "NONE";
     }
 }

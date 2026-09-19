@@ -6,6 +6,7 @@ import com.inquiro.business.BusinessProfileProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -14,60 +15,60 @@ public class SlotFillingEngine {
 
     private final BusinessProfileProvider businessProfileProvider;
 
-    public List<String> findMissingSlots(
-            RequestAnalysis analysis) {
-
-        BusinessProfile businessProfile =
-                businessProfileProvider.get();
-
-        return findMissingSlots(
-                analysis,
-                businessProfile
-        );
+    public List<String> findMissingSlots(RequestAnalysis analysis) {
+        return findMissingSlots(analysis, businessProfileProvider.get());
     }
 
     public List<String> findMissingSlots(
             RequestAnalysis analysis,
             BusinessProfile businessProfile) {
 
-        RequestDefinition definition =
-                businessProfile.services()
-                        .stream()
-                        .filter(service ->
-                                service.requestType()
-                                        .equalsIgnoreCase(
-                                                analysis.intent()
-                                        ))
-                        .findFirst()
-                        .orElse(null);
+        if (analysis == null || businessProfile == null || businessProfile.services() == null) {
+            return List.of();
+        }
+
+        RequestDefinition definition = businessProfile.services()
+                .stream()
+                .filter(service -> service.requestType().equalsIgnoreCase(analysis.intent()))
+                .findFirst()
+                .orElse(null);
 
         if (definition == null) {
             return List.of();
         }
 
-        return definition.requiredSlots()
-                .stream()
-                .filter(slot ->
-                        isMissing(
-                                analysis,
-                                slot
-                        ))
-                .toList();
+        List<String> missing = new ArrayList<>();
+        addMissing(missing, analysis, definition.requiredSlots());
+
+        if (definition.actionType() == RequestActionType.BOOKING) {
+            addMissing(missing, analysis, definition.actionRequiredSlots());
+        }
+
+        return List.copyOf(missing);
     }
 
-    private boolean isMissing(
+    private void addMissing(
+            List<String> missing,
             RequestAnalysis analysis,
-            String slot) {
+            List<String> slots) {
+        if (slots == null) {
+            return;
+        }
+        for (String slot : slots) {
+            if (!missing.contains(slot) && isMissing(analysis, slot)) {
+                missing.add(slot);
+            }
+        }
+    }
 
+    private boolean isMissing(RequestAnalysis analysis, String slot) {
+        if (slot == null || slot.isBlank() || analysis.entities() == null) {
+            return true;
+        }
         if (!analysis.entities().containsKey(slot)) {
             return true;
         }
-
-        Object value =
-                analysis.entities()
-                        .get(slot);
-
-        return value == null ||
-                String.valueOf(value).isBlank();
+        Object value = analysis.entities().get(slot);
+        return value == null || String.valueOf(value).isBlank();
     }
 }

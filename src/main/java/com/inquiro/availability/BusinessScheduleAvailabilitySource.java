@@ -52,14 +52,27 @@ public class BusinessScheduleAvailabilitySource
                         ? null
                         : fields.get("date");
 
+        boolean dateRangeRequest =
+                fields != null
+                        && fields.get("date") == null
+                        && fields.get("checkInDate") != null;
+
+        if (dateValue == null && dateRangeRequest) {
+            dateValue = fields.get("checkInDate");
+        }
+
         Object timeValue =
                 fields == null
                         ? null
                         : fields.get("time");
 
-        if (dateValue == null
-                || timeValue == null) {
+        if (dateValue == null) {
+            return unknown(
+                    "A date is required to check availability."
+            );
+        }
 
+        if (timeValue == null && !dateRangeRequest) {
             return unknown(
                     "A date and time are required to check availability."
             );
@@ -69,7 +82,9 @@ public class BusinessScheduleAvailabilitySource
                 parseDate(String.valueOf(dateValue));
 
         LocalTime time =
-                parseTime(String.valueOf(timeValue));
+                timeValue == null
+                        ? null
+                        : parseTime(String.valueOf(timeValue));
 
         if (date == null) {
 
@@ -78,7 +93,7 @@ public class BusinessScheduleAvailabilitySource
             );
         }
 
-        if (time == null) {
+        if (time == null && !dateRangeRequest) {
 
             return unknown(
                     "The requested time could not be understood."
@@ -122,6 +137,14 @@ public class BusinessScheduleAvailabilitySource
 
             return unknown(
                     "The business hours could not be interpreted."
+            );
+        }
+
+        if (dateRangeRequest) {
+            return new AvailabilityResult(
+                    AvailabilityStatus.CONFIRMED,
+                    serviceDescription(service, businessProfile)
+                            + " is available for the requested date."
             );
         }
 

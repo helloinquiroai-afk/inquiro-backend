@@ -42,8 +42,7 @@ public class BookingController {
     }
 
     private static void validateBusinessId(String businessId) {
-        if (businessId == null
-                || !businessId.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")) {
+        if (businessId == null || !businessId.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")) {
             throw new IllegalArgumentException("Invalid business ID");
         }
     }
@@ -64,6 +63,8 @@ public class BookingController {
             String businessId,
             String service,
             LocalDate bookingDate,
+            LocalDate checkOutDate,
+            Integer durationNights,
             LocalTime startTime,
             LocalTime endTime,
             String customerName,
@@ -77,6 +78,8 @@ public class BookingController {
                     booking.getBusinessId(),
                     booking.getService(),
                     booking.getBookingDate(),
+                    booking.getCheckOutDate(),
+                    booking.getDurationNights(),
                     booking.getStartTime(),
                     booking.getEndTime(),
                     booking.getCustomerName(),

@@ -435,8 +435,7 @@ public class BusinessKnowledgeExtractor {
             List<ServiceRow> serviceRows,
             Map<String, String> bookingRules) {
 
-        Map<String, ServiceRow> rowsByService =
-                new LinkedHashMap<>();
+        Map<String, ServiceRow> rowsByService = new LinkedHashMap<>();
 
         for (ServiceRow row : serviceRows) {
             rowsByService.put(
@@ -445,44 +444,45 @@ public class BusinessKnowledgeExtractor {
             );
         }
 
-        List<RequestDefinition> definitions =
-                new ArrayList<>();
+        List<RequestDefinition> definitions = new ArrayList<>();
 
-        boolean bookingRequired =
-                bookingRules.values()
-                        .stream()
-                        .anyMatch(value ->
-                                value.toLowerCase(Locale.ROOT)
-                                        .contains("required"));
+        boolean bookingRequired = bookingRules.values()
+                .stream()
+                .anyMatch(value ->
+                        value.toLowerCase(Locale.ROOT)
+                                .contains("required"));
 
         for (String service : services) {
 
-            ServiceRow row =
-                    rowsByService.get(
-                            serviceCode(service)
-                    );
+            ServiceRow row = rowsByService.get(
+                    serviceCode(service)
+            );
 
-            List<String> requiredSlots =
-                    row == null
-                            ? List.of()
-                            : row.requirements();
+            List<String> requiredSlots = row == null
+                    ? List.of()
+                    : row.requirements();
 
-            if (requiredSlots.isEmpty() &&
-                    bookingRequired) {
+            boolean bookingShape = requiredSlots.stream().anyMatch(slot ->
+                    "date".equalsIgnoreCase(slot)
+                            || "time".equalsIgnoreCase(slot)
+                            || "checkInDate".equalsIgnoreCase(slot)
+                            || "checkOutDate".equalsIgnoreCase(slot)
+                            || "durationNights".equalsIgnoreCase(slot)
+                            || "preferredDate".equalsIgnoreCase(slot)
+                            || "preferredTime".equalsIgnoreCase(slot));
 
-                requiredSlots =
-                        List.of(
-                                "preferredDate",
-                                "preferredTime",
-                                "customerName",
-                                "customerPhone"
-                        );
+            boolean booking = bookingShape || (row == null && bookingRequired);
+
+            if (requiredSlots.isEmpty() && booking) {
+                requiredSlots = List.of(
+                        "preferredDate",
+                        "preferredTime"
+                );
             }
 
-            RequestActionType actionType =
-                    bookingRequired
-                            ? RequestActionType.BOOKING
-                            : RequestActionType.BUSINESS_REQUEST;
+            RequestActionType actionType = booking
+                    ? RequestActionType.BOOKING
+                    : RequestActionType.BUSINESS_REQUEST;
 
             definitions.add(
                     new RequestDefinition(

@@ -43,8 +43,7 @@ public class BookingManagementController {
         validateBusinessId(businessId);
         tenantAuthorization.requireBusinessAccess(businessId);
 
-        return BookingResponse.from(
-                bookingManagementService.get(businessId, bookingId));
+        return BookingResponse.from(bookingManagementService.get(businessId, bookingId));
     }
 
     @DeleteMapping("/{businessId}/bookings/{bookingId}")
@@ -55,13 +54,11 @@ public class BookingManagementController {
         validateBusinessId(businessId);
         tenantAuthorization.requireBusinessAccess(businessId);
 
-        return BookingResponse.from(
-                bookingManagementService.cancel(businessId, bookingId));
+        return BookingResponse.from(bookingManagementService.cancel(businessId, bookingId));
     }
 
     private static void validateBusinessId(String businessId) {
-        if (businessId == null
-                || !businessId.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")) {
+        if (businessId == null || !businessId.matches("[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}")) {
             throw new IllegalArgumentException("Invalid business ID");
         }
     }
@@ -71,6 +68,8 @@ public class BookingManagementController {
             String businessId,
             String service,
             LocalDate bookingDate,
+            LocalDate checkOutDate,
+            Integer durationNights,
             LocalTime startTime,
             LocalTime endTime,
             String customerName,
@@ -84,6 +83,8 @@ public class BookingManagementController {
                     booking.getBusinessId(),
                     booking.getService(),
                     booking.getBookingDate(),
+                    booking.getCheckOutDate(),
+                    booking.getDurationNights(),
                     booking.getStartTime(),
                     booking.getEndTime(),
                     booking.getCustomerName(),
