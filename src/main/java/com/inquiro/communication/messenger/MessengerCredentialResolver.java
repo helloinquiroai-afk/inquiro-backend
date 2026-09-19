@@ -22,7 +22,7 @@ public class MessengerCredentialResolver {
 
     public ChannelCredentialService.Credentials forVerificationToken(String supplied) {
         if (supplied == null || supplied.isBlank()) return null;
-        for (var channel : channels.findByBusinessId(findAnyBusinessId())) {
+        for (var channel : channels.findByType(BusinessChannelType.MESSENGER)) {
             if (channel.type() != BusinessChannelType.MESSENGER || !channel.enabled()) continue;
             var credential = credentials.get(channel.channelId());
             if (credential != null && constantTimeEquals(credential.verifyToken(), supplied)) return credential;
@@ -37,13 +37,6 @@ public class MessengerCredentialResolver {
                 legacyProperties.getVerifyToken(), 0);
     }
 
-    private String findAnyBusinessId() {
-        // Verification tokens are application-level callback secrets; lookup is intentionally
-        // performed through the configured channel repository by the application-specific resolver.
-        // The current repository abstraction has no global channel query, so verification uses
-        // the legacy app-level token when configured.
-        return "";
-    }
 
     private boolean constantTimeEquals(String a, String b) {
         return java.security.MessageDigest.isEqual(
