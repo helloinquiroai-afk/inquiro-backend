@@ -59,7 +59,12 @@ class BookingCreationServiceTest {
         when(availabilityService.check(
                 eq("biz_001"), eq("TABLE_RESERVATION"), anyMap(), eq(business.profile())))
                 .thenReturn(new AvailabilityResult(
-                        AvailabilityStatus.CONFIRMED, "Available"));
+                        AvailabilityStatus.CONFIRMED,
+                        "Available",
+                        new AvailabilityResult.BookingPeriod(
+                                LocalDate.of(2026, 9, 20), null,
+                                LocalTime.of(19, 0), LocalTime.of(20, 0)
+                        )));
         when(bookingRepository.save(any(BookingEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
