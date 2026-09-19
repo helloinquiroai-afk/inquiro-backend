@@ -132,7 +132,7 @@ public class InquiryOrchestrator {
         if ("BUSINESS_QUESTION".equalsIgnoreCase(
                 analysis.intent())) {
 
-String answer =
+            String answer =
                     businessQuestionService.answer(
                             message,
                             businessProfile
@@ -155,7 +155,33 @@ String answer =
 
         /*
          * =========================================================
-         * 5. REQUEST NOT CLEAR
+         * 5. GENERAL QUESTION
+         * =========================================================
+         *
+         * General questions are answered by the AI using its
+         * general knowledge. They are not treated as business
+         * requests and do not create an inquiry workflow.
+         */
+        if ("GENERAL_QUESTION".equalsIgnoreCase(analysis.intent())) {
+            String question = analysis.knowledgeQuestions().isEmpty()
+                    ? message
+                    : analysis.knowledgeQuestions().get(0);
+
+            return new InquiryResponse(
+                    new InquiryResult(
+                            businessProfile.businessType(),
+                            analysis.intent(),
+                            analysis.entities()
+                    ),
+                    List.of(),
+                    InquiryStatus.INFORMATION_COLLECTED,
+                    aiService.answerGeneralQuestion(question)
+            );
+        }
+
+        /*
+         * =========================================================
+         * 6. REQUEST NOT CLEAR
          * =========================================================
          *
          * Example:
