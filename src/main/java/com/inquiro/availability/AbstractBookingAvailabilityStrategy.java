@@ -54,6 +54,9 @@ abstract class AbstractBookingAvailabilityStrategy implements BookingAvailabilit
                 result.put(target, result.get(source));
             }
         }
+        if (result.get("date") == null && result.get("startDate") != null) {
+            result.put("date", result.get("startDate"));
+        }
         return result;
     }
 
