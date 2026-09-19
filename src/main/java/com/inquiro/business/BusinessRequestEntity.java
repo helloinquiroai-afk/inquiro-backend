@@ -29,7 +29,7 @@ public class BusinessRequestEntity {
     @Column(name = "service")
     private String service;
 
-    @Column(name = "fields_json", columnDefinition = "CLOB")
+    @Column(name = "fields_json", columnDefinition = "TEXT")
     private String fieldsJson;
 
     @Enumerated(EnumType.STRING)

@@ -27,10 +27,10 @@ public class ConversationSessionEntity {
     @Column(name = "customer_id")
     private String customerId;
 
-    @Column(name = "inquiry_json", columnDefinition = "CLOB")
+    @Column(name = "inquiry_json", columnDefinition = "TEXT")
     private String inquiryJson;
 
-    @Column(name = "missing_fields_json", columnDefinition = "CLOB")
+    @Column(name = "missing_fields_json", columnDefinition = "TEXT")
     private String missingFieldsJson;
 
     @Column(name = "last_updated", nullable = false)

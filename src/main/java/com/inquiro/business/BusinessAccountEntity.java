@@ -32,7 +32,7 @@ public class BusinessAccountEntity {
 
     @Column(
             name = "profile_json",
-            columnDefinition = "CLOB"
+            columnDefinition = "TEXT"
     )
     private String profileJson;
 
