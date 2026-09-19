@@ -5,6 +5,8 @@ import com.inquiro.booking.BookingEntity;
 import com.inquiro.booking.BookingJpaRepository;
 import com.inquiro.booking.BookingStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import com.inquiro.booking.BookingInventoryService;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -16,6 +18,14 @@ public class DateRangeBookingAvailabilityStrategy extends AbstractBookingAvailab
 
     private static final List<BookingStatus> BLOCKING_STATUSES =
             List.of(BookingStatus.PENDING, BookingStatus.CONFIRMED);
+
+    @Autowired
+    public DateRangeBookingAvailabilityStrategy(
+            BookingJpaRepository bookingRepository,
+            BusinessScheduleAvailabilitySource scheduleSource,
+            BookingInventoryService inventoryService) {
+        super(bookingRepository, scheduleSource, inventoryService);
+    }
 
     public DateRangeBookingAvailabilityStrategy(
             BookingJpaRepository bookingRepository,
@@ -49,16 +59,18 @@ public class DateRangeBookingAvailabilityStrategy extends AbstractBookingAvailab
         }
 
         LocalDate checkOut = checkIn.plusDays(durationNights);
+        int capacity = capacityFor(businessId, service);
+        if (capacity < 1) return unknown("No booking inventory is configured for this service.");
+
         List<BookingEntity> bookings =
                 bookingRepository.findByBusinessIdAndStatusIn(businessId, BLOCKING_STATUSES);
 
-        for (BookingEntity booking : bookings) {
-            if (overlaps(checkIn, checkOut, booking)) {
-                return new AvailabilityResult(
-                        AvailabilityStatus.UNAVAILABLE,
-                        "The requested stay overlaps with an existing booking."
-                );
-            }
+        long conflicts = bookings.stream().filter(booking -> overlaps(checkIn, checkOut, booking)).count();
+        if (conflicts >= capacity) {
+            return new AvailabilityResult(
+                    AvailabilityStatus.UNAVAILABLE,
+                    "The requested stay has no remaining inventory."
+            );
         }
 
         return new AvailabilityResult(
