@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inquiro.ai.AiService;
 import com.inquiro.ai.BusinessQuestionPrompt;
 import com.inquiro.business.*;
+import com.inquiro.auth.*;
+import java.time.Instant;
+import java.util.UUID;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,13 +34,27 @@ class BusinessKnowledgeApiTest {
     @Autowired BusinessKnowledgeStore store;
     @Autowired KnowledgeIngestionService ingestion;
     @MockitoBean AiService ai;
+    @Autowired AuthService auth;
+    @Autowired UserAccountJpaRepository users;
+    @Autowired BusinessMembershipJpaRepository memberships;
+
+    private String token;
 
     @BeforeEach void setup() {
         accounts.save(new BusinessAccount("knowledge-test", "Paris Hotel", KnowledgeFixtures.profile()));
+        UserAccountEntity user = users.findByEmail("knowledge-api-owner@inquiro.test").orElseGet(() -> {
+            auth.register("knowledge-api-owner@inquiro.test", "correct horse battery staple", "Knowledge Owner");
+            return users.findByEmail("knowledge-api-owner@inquiro.test").orElseThrow();
+        });
+        if (memberships.findByUserIdAndBusinessId(user.getUserId(), "knowledge-test").isEmpty()) {
+            memberships.save(new BusinessMembershipEntity("mem_" + UUID.randomUUID(), user.getUserId(),
+                    "knowledge-test", BusinessMembershipRole.OWNER, Instant.now()));
+        }
+        token = auth.login("knowledge-api-owner@inquiro.test", "correct horse battery staple").accessToken();
     }
 
     @Test void readsPersistedKnowledge() throws Exception {
-        mvc.perform(get(BASE).header("X-Inquiro-Management-Key", "test-management-key"))
+        mvc.perform(get(BASE).header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.facts.parking").value("Yes, free parking is available for hotel guests."))
                 .andExpect(jsonPath("$.policies[0]").value("Cancellation requires 24 hours notice."));
     }
