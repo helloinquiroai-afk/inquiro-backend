@@ -29,7 +29,7 @@ public class BookingController {
             @Valid @RequestBody CreateBookingRequest request) {
 
         validateBusinessId(businessId);
-        tenantAuthorization.requireBusinessAccess(businessId);
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
 
         BookingEntity booking = bookingCreationService.create(
                 businessId,
