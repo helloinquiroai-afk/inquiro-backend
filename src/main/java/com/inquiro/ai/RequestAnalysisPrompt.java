@@ -105,12 +105,20 @@ public final class RequestAnalysisPrompt {
                    configured service or business-boundary entry, or when the request itself is unclear.
                 
                 BUSINESS QUESTIONS
-                
-                If the customer asks a question about the business, its services, products, rules,
-                prices, locations, availability, policies, or contact details, return BUSINESS_QUESTION.
+
+                If the customer asks about the business or configured business knowledge, return
+                BUSINESS_QUESTION. This includes configured locations, branches, properties, products,
+                services, policies, hours, capabilities, contact details, and facts.
+
+                If the customer asks something genuinely unrelated to the business, return OFF_TOPIC.
+                Do not answer unrelated questions.
+
+                If the customer is asking about a configured subject but the exact question is unclear,
+                return NEEDS_CLARIFICATION rather than guessing.
+
                 If the SAME message also requests a configured workflow, return that workflow intent,
                 extract its entities, and include the business question(s) in knowledgeQuestions.
-                Never discard the workflow or put a question into a workflow field.
+                Never discard workflow information or put a question into a workflow field.
                 knowledgeQuestions is an array of up to 3 self-contained questions explicitly asked,
                 each no longer than 2000 characters; otherwise return an empty array.
                 
