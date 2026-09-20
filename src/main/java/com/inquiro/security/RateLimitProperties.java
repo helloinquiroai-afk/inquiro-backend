@@ -8,6 +8,7 @@ public class RateLimitProperties {
     private int requestsPerMinute = 60;
     private int authenticatedRequestsPerMinute = 120;
     private int publicAiRequestsPerMinute = 20;
+    private int authRequestsPerMinute = 10;
     private int webhookRequestsPerMinute = 120;
     private int maxRequestBodyBytes = 1_048_576;
     private int burst = 10;
@@ -20,6 +21,8 @@ public class RateLimitProperties {
     public void setAuthenticatedRequestsPerMinute(int v) { this.authenticatedRequestsPerMinute = v; }
     public int getPublicAiRequestsPerMinute() { return publicAiRequestsPerMinute; }
     public void setPublicAiRequestsPerMinute(int v) { this.publicAiRequestsPerMinute = v; }
+    public int getAuthRequestsPerMinute() { return authRequestsPerMinute; }
+    public void setAuthRequestsPerMinute(int v) { this.authRequestsPerMinute = v; }
     public int getWebhookRequestsPerMinute() { return webhookRequestsPerMinute; }
     public void setWebhookRequestsPerMinute(int v) { this.webhookRequestsPerMinute = v; }
     public int getMaxRequestBodyBytes() { return maxRequestBodyBytes; }
