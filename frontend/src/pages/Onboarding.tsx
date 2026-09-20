@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
-import L from "leaflet";
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import {
   ArrowLeft, ArrowRight, Check, CheckCircle2, Clock3, Hotel, Hospital,
@@ -421,7 +420,7 @@ type LocationEntry = { id: string; address: string; lat: number | null; lng: num
 
 const sriLankaCenter: [number, number] = [7.8731, 80.7718];
 
-function LocationMarker({ value, onChange }: { value: LocationEntry; onChange: (next: LocationEntry) => void }) {
+function RecenterMap({ center, zoom }: { center: [number, number]; zoom: number }) {\n  const map = useMap();\n  useEffect(() => { map.setView(center, zoom, { animate: true }); }, [map, center[0], center[1], zoom]);\n  return null;\n}\n\nfunction LocationMarker({ value, onChange }: { value: LocationEntry; onChange: (next: LocationEntry) => void }) {
   useMapEvents({
     click(event) {
       onChange({ ...value, lat: event.latlng.lat, lng: event.latlng.lng });
