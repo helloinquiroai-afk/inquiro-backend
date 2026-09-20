@@ -38,7 +38,8 @@ public class SecurityConfig {
             MetaSignatureValidator signatureValidator,
             @Value("${inquiro.management-api-key:}") String managementKey,
             RateLimitService rateLimitService,
-            RateLimitProperties rateLimitProperties)
+            RateLimitProperties rateLimitProperties,
+            @Value("${inquiro.security.allowed-origins:}") String allowedOrigins)
             throws Exception {
 
         ManagementAccessFilter managementAccessFilter =
@@ -48,7 +49,7 @@ public class SecurityConfig {
 
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource("")))
+                 .cors(cors -> cors.configurationSource(corsConfigurationSource(allowedOrigins)))
                 .httpBasic(httpBasic -> httpBasic.disable())
                 .formLogin(formLogin -> formLogin.disable())
                 .logout(logout -> logout.disable())
