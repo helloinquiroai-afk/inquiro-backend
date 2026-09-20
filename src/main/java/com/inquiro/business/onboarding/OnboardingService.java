@@ -339,6 +339,10 @@ public class OnboardingService {
             return true;
         }
 
+        if (hasItems(knowledge.locationDetails())) {
+            return true;
+        }
+
         if (hasEntries(knowledge.contactInformation())) {
             return true;
         }
