@@ -37,6 +37,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         } else {
             key = "ip:" + clientAddress(request);
             if (isWebhook(request)) limit = properties.getWebhookRequestsPerMinute();
+            else if (isAuthEndpoint(request)) limit = properties.getAuthRequestsPerMinute();
             else if (isAiEndpoint(request)) limit = properties.getPublicAiRequestsPerMinute();
             else limit = properties.getRequestsPerMinute();
         }
@@ -63,6 +64,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private RateLimitService.Decision acquire(String key, int limit) {
         return service.tryAcquire(key, Math.max(1, limit));
+    }
+
+    private static boolean isAuthEndpoint(HttpServletRequest r) {
+        String p = r.getRequestURI();
+        return p.equals("/api/auth/login") || p.equals("/api/auth/register");
     }
 
     private static boolean isAiEndpoint(HttpServletRequest r) {
