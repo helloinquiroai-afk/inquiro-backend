@@ -1,4 +1,5 @@
-import { FormEvent, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { Bot, Send, Sparkles, UserRound } from "lucide-react";
 import { api } from "../api";
 import type { ConversationResponse } from "../types";
