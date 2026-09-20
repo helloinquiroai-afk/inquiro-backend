@@ -39,7 +39,18 @@ public class OpenAiService implements AiService {
                 .requestInterceptor((request, body, execution) -> {
                     boolean acquired = false;
                     try {
-                        acquired = concurrency.tryAcquire(Math.max(1, properties.getReadTimeoutSeconds()), TimeUnit.SECONDS);
+                        try {
+                            acquired = concurrency.tryAcquire(
+                                    Math.max(1, properties.getReadTimeoutSeconds()),
+                                    TimeUnit.SECONDS
+                            );
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            throw new IllegalStateException(
+                                    "OpenAI concurrency wait was interrupted",
+                                    interrupted
+                            );
+                        }
                         if (!acquired) throw new IllegalStateException("OpenAI concurrency limit reached");
                         return execution.execute(request, body);
                     } finally {
