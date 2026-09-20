@@ -22,6 +22,10 @@ public class BusinessChannelEntity {
         this.externalId = externalId; this.enabled = enabled;
         this.allowedOrigins = allowedOrigins == null ? "" : allowedOrigins;
     }
+    public BusinessChannelEntity(String channelId, String businessId, String type, String externalId, boolean enabled) {
+        this(channelId, businessId, type, externalId, enabled, "");
+    }
+
     public String getChannelId(){return channelId;}
     public String getBusinessId(){return businessId;}
     public String getType(){return type;}
