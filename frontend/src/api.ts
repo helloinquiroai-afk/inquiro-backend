@@ -44,7 +44,7 @@ export const api = {
   publicConversation: (sessionId:string,message:string,channelId:string,siteOrigin?:string) => request<ConversationResponse>("/api/public/conversations/message",{method:"POST",body:JSON.stringify({sessionId,message,channelId,siteOrigin})}),
   clearPublicConversation: (sessionId:string,channelId:string) => request<void>(`/api/public/conversations/${encodeURIComponent(sessionId)}?channelId=${encodeURIComponent(channelId)}`,{method:"DELETE"}),
   clearConversation: (sessionId:string,channelId:string) => request<void>(`/api/conversations/${encodeURIComponent(sessionId)}?channelId=${encodeURIComponent(channelId)}`,{method:"DELETE"}),
-  channels: (id:string) => request<{channelId:string;businessId:string;type:string;externalId:string;enabled:boolean}[]>(`/api/business/accounts/${id}/channels`),
+  channels: (id:string) => request<{channelId:string;businessId:string;type:string;externalId:string;enabled:boolean;allowedOrigins:string[]}[]>(`/api/business/accounts/${id}/channels`),
   connectWebsite: (id:string) => request<{channelId:string;businessId:string;type:string;externalId:string;enabled:boolean;allowedOrigins:string[]}>(`/api/business/accounts/${id}/channels`,{method:"POST",body:JSON.stringify({type:"WEBSITE",externalId:`website-${id}`,enabled:true})}),
   websiteConfig: (id:string,channelId:string) => request<{channelId:string;allowedOrigins:string[]}>(`/api/business/accounts/${id}/channels/${channelId}/website`),
   saveWebsiteConfig: (id:string,channelId:string,allowedOrigins:string[]) => request<{channelId:string;allowedOrigins:string[]}>(`/api/business/accounts/${id}/channels/${channelId}/website`,{method:"PUT",body:JSON.stringify({allowedOrigins})}),
