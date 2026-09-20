@@ -41,7 +41,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             else limit = properties.getRequestsPerMinute();
         }
 
-        DecisionResult result = acquire(key, limit);
+        RateLimitService.Decision result = acquire(key, limit);
         if (!result.allowed()) {
             response.setStatus(429);
             response.setHeader("Retry-After", Long.toString(result.retryAfterSeconds()));
@@ -82,5 +82,5 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return r.getRemoteAddr() == null ? "unknown" : r.getRemoteAddr();
     }
 
-    private record DecisionResult(boolean allowed, long retryAfterSeconds) {}
+
 }
