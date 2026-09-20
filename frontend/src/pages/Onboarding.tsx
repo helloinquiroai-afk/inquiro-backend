@@ -7,11 +7,11 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { api, session } from "../api";
-import type { BusinessKnowledge, Catalog, OnboardingSummary, ServiceDefinition } from "../types";
+import type { BusinessKnowledge, BusinessLocation, Catalog, OnboardingSummary, ServiceDefinition } from "../types";
 
 const emptyKnowledge: BusinessKnowledge = {
   businessDescription: "", services: [], products: [], facts: {}, faqs: [], policies: [],
-  instructions: "", operatingHours: {}, locations: [], contactInformation: {},
+  instructions: "", operatingHours: {}, locations: [], locationDetails: [], contactInformation: {},
   bookingRules: {}, capabilities: [], restrictions: []
 };
 
@@ -109,7 +109,7 @@ export default function Onboarding() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
-  const [locations, setLocations] = useState<LocationEntry[]>([{ id: "location-1", address: "", lat: null, lng: null }]);
+  const [locations, setLocations] = useState<LocationEntry[]>([{ id: "location-1", label: "", address: "", lat: null, lng: null }]);
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -194,13 +194,17 @@ export default function Onboarding() {
           instructions: additionalInfo.trim(),
           operatingHours,
           locations: locations.map(item => item.address.trim()).filter(Boolean),
+          locationDetails: locations
+            .filter(item => item.address.trim() || (item.lat != null && item.lng != null))
+            .map(item => ({
+              label: item.label.trim(),
+              address: item.address.trim(),
+              latitude: item.lat,
+              longitude: item.lng
+            } satisfies BusinessLocation)),
           facts: {
             ...(knowledge.facts ?? {}),
-            ...optionFacts,
-            ...Object.fromEntries(locations.filter(item => item.lat != null && item.lng != null).flatMap((item, index) => [
-              [`Location ${index + 1} latitude`, String(item.lat)],
-              [`Location ${index + 1} longitude`, String(item.lng)]
-            ]))
+            ...optionFacts
           },
           contactInformation: {
             ...(knowledge.contactInformation ?? {}),
@@ -331,7 +335,7 @@ export default function Onboarding() {
           <section className="knowledge-block">
             <div className="knowledge-block-title"><MessageCircle size={17} /><div><h3>Contact & location</h3><p>Help customers find and contact the business without typing repetitive details.</p></div></div>
             <div className="knowledge-grid">
-              <div className="location-manager"><div className="location-entry-list">{locations.map((item,index)=><div className="location-entry" key={item.id}><div className="location-entry-head"><strong>Location {index+1}</strong>{locations.length>1&&<button type="button" className="remove-location" onClick={()=>setLocations(current=>current.filter(x=>x.id!==item.id))}>Remove</button>}</div><input value={item.address} onChange={e=>setLocations(current=>current.map(x=>x.id===item.id?{...x,address:e.target.value}:x))} placeholder="e.g. 123 Galle Road, Matara" /><MapPicker value={item} onChange={next=>setLocations(current=>current.map(x=>x.id===item.id?next:x))} /></div>)}</div><button type="button" className="add-location-button" onClick={()=>setLocations(current=>[...current,{id:`location-${Date.now()}`,address:"",lat:null,lng:null}])}>+ Add another location</button></div>
+              <div className="location-manager"><div className="location-entry-list">{locations.map((item,index)=><div className="location-entry" key={item.id}><div className="location-entry-head"><strong>{item.label.trim() || `Location ${index+1}`}</strong>{locations.length>1&&<button type="button" className="remove-location" onClick={()=>setLocations(current=>current.filter(x=>x.id!==item.id))}>Remove</button>}</div><input value={item.label} onChange={e=>setLocations(current=>current.map(x=>x.id===item.id?{...x,label:e.target.value}:x))} placeholder="Location name (e.g. Main branch)" /><input value={item.address} onChange={e=>setLocations(current=>current.map(x=>x.id===item.id?{...x,address:e.target.value}:x))} placeholder="e.g. 123 Galle Road, Matara" /><MapPicker value={item} onChange={next=>setLocations(current=>current.map(x=>x.id===item.id?next:x))} /></div>)}</div><button type="button" className="add-location-button" onClick={()=>setLocations(current=>[...current,{id:`location-${Date.now()}`,label:"",address:"",lat:null,lng:null}])}>+ Add another location</button></div>
               <label><span>Phone</span><input value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. +94 71 234 5678" /></label>
               <label><span>Email</span><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="e.g. hello@yourbusiness.com" /></label>
               <label><span>Website</span><input value={website} onChange={e => setWebsite(e.target.value)} placeholder="e.g. https://yourbusiness.com" /></label>
@@ -416,7 +420,7 @@ function LaunchStep({ summary }: { summary: OnboardingSummary | null }) {
 }
 
 
-type LocationEntry = { id: string; address: string; lat: number | null; lng: number | null };
+type LocationEntry = { id: string; label: string; address: string; lat: number | null; lng: number | null };
 
 const sriLankaCenter: [number, number] = [7.8731, 80.7718];
 

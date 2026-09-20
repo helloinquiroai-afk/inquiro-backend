@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Bookings from "./pages/Bookings";
 import Setup from "./pages/Setup";
 import CustomerChat from "./pages/CustomerChat";
+import PublicChat from "./pages/PublicChat";
 import Layout from "./components/Layout";
 
 function Protected({children}:{children:ReactNode}) {
@@ -18,6 +19,7 @@ export default function App() {
   void refresh;
   return <Routes>
     <Route path="/login" element={<Auth mode="login" onAuth={()=>setRefresh(v=>v+1)}/>} />
+    <Route path="/widget" element={<PublicChat/>} />
     <Route path="/register" element={<Auth mode="register" onAuth={()=>setRefresh(v=>v+1)}/>} />
     <Route path="/onboarding/*" element={<Protected><Layout><Onboarding/></Layout></Protected>} />
     <Route path="/bookings" element={<Protected><Layout><Bookings/></Layout></Protected>} />

@@ -73,7 +73,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private static boolean isAiEndpoint(HttpServletRequest r) {
         String p = r.getRequestURI();
-        return p.equals("/api/chat") || p.startsWith("/api/conversations/");
+        return p.equals("/api/chat") || p.startsWith("/api/conversations/") || p.startsWith("/api/public/conversations/");
     }
 
     private static boolean isWebhook(HttpServletRequest r) {
