@@ -9,6 +9,7 @@ type Message = { role: "assistant" | "user"; text: string };
 export default function PublicChat() {
   const params = new URLSearchParams(window.location.search);
   const channelId = params.get("channelId")?.trim() ?? "";
+  const siteOrigin = params.get("siteOrigin")?.trim() || window.location.origin;
   const storageKey = useMemo(() => `inquiro.public.chat.${channelId}`, [channelId]);
   const [sessionId] = useState(() => sessionStorage.getItem(storageKey) ?? crypto.randomUUID());
   const [messages, setMessages] = useState<Message[]>([]);
@@ -30,7 +31,7 @@ export default function PublicChat() {
     setBusy(true);
     sessionStorage.setItem(storageKey, sessionId);
     try {
-      const response: ConversationResponse = await api.publicConversation(sessionId, message, channelId);
+      const response: ConversationResponse = await api.publicConversation(sessionId, message, channelId, siteOrigin);
       setMessages(current => [...current, { role: "assistant", text: response.reply || "Thanks. How else can I help?" }]);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to send message");
