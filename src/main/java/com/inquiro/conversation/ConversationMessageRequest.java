@@ -6,10 +6,12 @@ public record ConversationMessageRequest(
 
         @jakarta.validation.constraints.Size(max = 128) String channelId,
 
-        @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 10000) String message
+        @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 10000) String message,
+
+        @jakarta.validation.constraints.Size(max = 2048) String siteOrigin
 
 ) {
     public ConversationMessageRequest(String sessionId, String message) {
-        this(sessionId, null, message);
+        this(sessionId, null, message, null);
     }
 }
