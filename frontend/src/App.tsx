@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useState } from "react";
+import type { ReactNode } from "react";
 import { session } from "./api";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
@@ -8,7 +9,7 @@ import Bookings from "./pages/Bookings";
 import Setup from "./pages/Setup";
 import Layout from "./components/Layout";
 
-function Protected({children}:{children:React.ReactNode}) {
+function Protected({children}:{children:ReactNode}) {
   return session.get() ? <>{children}</> : <Navigate to="/login" replace />;
 }
 export default function App() {
