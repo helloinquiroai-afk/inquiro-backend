@@ -41,6 +41,8 @@ export const api = {
   complete: (id:string) => request<OnboardingSummary>(`/api/business/accounts/${id}/onboarding/complete`,{method:"POST"}),
   bookings: (id:string) => request<Booking[]>(`/api/business/accounts/${id}/bookings`),
   conversation: (sessionId:string,message:string,channelId:string) => request<ConversationResponse>("/api/conversations/message",{method:"POST",body:JSON.stringify({sessionId,message,channelId})}),
+  publicConversation: (sessionId:string,message:string,channelId:string) => request<ConversationResponse>("/api/public/conversations/message",{method:"POST",body:JSON.stringify({sessionId,message,channelId})}),
+  clearPublicConversation: (sessionId:string,channelId:string) => request<void>(`/api/public/conversations/${encodeURIComponent(sessionId)}?channelId=${encodeURIComponent(channelId)}`,{method:"DELETE"}),
   clearConversation: (sessionId:string,channelId:string) => request<void>(`/api/conversations/${encodeURIComponent(sessionId)}?channelId=${encodeURIComponent(channelId)}`,{method:"DELETE"}),
   channels: (id:string) => request<{channelId:string;businessId:string;type:string;externalId:string;enabled:boolean}[]>(`/api/business/accounts/${id}/channels`),
   connectWebsite: (id:string) => request<{channelId:string;businessId:string;type:string;externalId:string;enabled:boolean}>(`/api/business/accounts/${id}/channels`,{method:"POST",body:JSON.stringify({type:"WEBSITE",externalId:`website-${id}`,enabled:true})}),
