@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import {
   ArrowLeft, ArrowRight, Check, CheckCircle2, Clock3, Hotel, Hospital,
   MessageCircle, PartyPopper, Sparkles, Utensils, WandSparkles
@@ -107,7 +110,7 @@ export default function Onboarding() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
-  const [location, setLocation] = useState("");
+  const [locations, setLocations] = useState<LocationEntry[]>([{ id: "location-1", address: "", lat: null, lng: null }]);
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -188,11 +191,18 @@ export default function Onboarding() {
           ...knowledge,
           businessDescription: description,
           services: services.map(service => service.requestType),
-          facts: { ...(knowledge.facts ?? {}), ...optionFacts },
           policies: Array.from(new Set([...(knowledge.policies ?? []), ...policies])),
           instructions: additionalInfo.trim(),
           operatingHours,
-          locations: location.trim() ? [location.trim()] : [],
+          locations: locations.map(item => item.address.trim()).filter(Boolean),
+          facts: {
+            ...(knowledge.facts ?? {}),
+            ...optionFacts,
+            ...Object.fromEntries(locations.filter(item => item.lat != null && item.lng != null).flatMap((item, index) => [
+              [`Location ${index + 1} latitude`, String(item.lat)],
+              [`Location ${index + 1} longitude`, String(item.lng)]
+            ]))
+          },
           contactInformation: {
             ...(knowledge.contactInformation ?? {}),
             ...(phone.trim() ? { phone: phone.trim() } : {}),
@@ -322,7 +332,7 @@ export default function Onboarding() {
           <section className="knowledge-block">
             <div className="knowledge-block-title"><MessageCircle size={17} /><div><h3>Contact & location</h3><p>Help customers find and contact the business without typing repetitive details.</p></div></div>
             <div className="knowledge-grid">
-              <label><span>Location</span><input value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. 123 Galle Road, Matara" /></label>
+              <div className="location-manager"><div className="location-entry-list">{locations.map((item,index)=><div className="location-entry" key={item.id}><div className="location-entry-head"><strong>Location {index+1}</strong>{locations.length>1&&<button type="button" className="remove-location" onClick={()=>setLocations(current=>current.filter(x=>x.id!==item.id))}>Remove</button>}</div><input value={item.address} onChange={e=>setLocations(current=>current.map(x=>x.id===item.id?{...x,address:e.target.value}:x))} placeholder="e.g. 123 Galle Road, Matara" /><MapPicker value={item} onChange={next=>setLocations(current=>current.map(x=>x.id===item.id?next:x))} /></div>)}</div><button type="button" className="add-location-button" onClick={()=>setLocations(current=>[...current,{id:`location-${Date.now()}`,address:"",lat:null,lng:null}])}>+ Add another location</button></div>
               <label><span>Phone</span><input value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. +94 71 234 5678" /></label>
               <label><span>Email</span><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="e.g. hello@yourbusiness.com" /></label>
               <label><span>Website</span><input value={website} onChange={e => setWebsite(e.target.value)} placeholder="e.g. https://yourbusiness.com" /></label>
@@ -403,5 +413,69 @@ function LaunchStep({ summary }: { summary: OnboardingSummary | null }) {
       ["Knowledge", summary?.knowledgeConfigured],
       ["Channel", summary?.channelConfigured]
     ].map(([label, ok]) => <div key={String(label)}><span className={ok ? "check-circle" : "pending-circle"}>{ok && <Check size={13} />}</span><span>{String(label)}</span><b>{ok ? "Ready" : "Next"}</b></div>)}</div>
+  </div>;
+}
+
+
+type LocationEntry = { id: string; address: string; lat: number | null; lng: number | null };
+
+const sriLankaCenter: [number, number] = [7.8731, 80.7718];
+
+function LocationMarker({ value, onChange }: { value: LocationEntry; onChange: (next: LocationEntry) => void }) {
+  useMapEvents({
+    click(event) {
+      onChange({ ...value, lat: event.latlng.lat, lng: event.latlng.lng });
+    }
+  });
+  return value.lat != null && value.lng != null ? (
+    <Marker position={[value.lat, value.lng]}><Popup>Business location</Popup></Marker>
+  ) : null;
+}
+
+function MapPicker({ value, onChange }: { value: LocationEntry; onChange: (next: LocationEntry) => void }) {
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [mapError, setMapError] = useState("");
+
+  async function searchAddress() {
+    if (!query.trim()) return;
+    setSearching(true); setMapError("");
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(query.trim())}`, {
+        headers: { Accept: "application/json" }
+      });
+      if (!response.ok) throw new Error("Address search failed");
+      const results = await response.json() as { display_name: string; lat: string; lon: string }[];
+      if (!results.length) { setMapError("Address not found. Try a more specific address."); return; }
+      const result = results[0];
+      onChange({ ...value, address: result.display_name, lat: Number(result.lat), lng: Number(result.lon) });
+    } catch (error) {
+      setMapError(error instanceof Error ? error.message : "Unable to search address");
+    } finally { setSearching(false); }
+  }
+
+  function useCurrentLocation() {
+    setMapError("");
+    if (!navigator.geolocation) { setMapError("Location is not available in this browser."); return; }
+    navigator.geolocation.getCurrentPosition(
+      position => onChange({ ...value, lat: position.coords.latitude, lng: position.coords.longitude }),
+      () => setMapError("Location permission was not granted. You can still search or place the pin manually."),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  const center: [number, number] = value.lat != null && value.lng != null ? [value.lat, value.lng] : sriLankaCenter;
+  return <div className="map-picker">
+    <div className="map-tools">
+      <div className="map-search"><input value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){e.preventDefault();void searchAddress()}}} placeholder="Search this location on the map" /><button type="button" className="secondary-button" onClick={()=>void searchAddress()} disabled={searching}>{searching ? "Searching…" : "Search"}</button></div>
+      <button type="button" className="text-button" onClick={useCurrentLocation}>Use my current location</button>
+    </div>
+    <MapContainer center={center} zoom={value.lat != null ? 15 : 7} scrollWheelZoom className="business-map">
+      <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <LocationMarker value={value} onChange={onChange} />
+    </MapContainer>
+    <div className="map-hint">Search an address, use your current location, or click the map to place the pin. You can still edit the address manually above.</div>
+    {value.lat != null && value.lng != null && <div className="coordinates">📍 {value.lat.toFixed(6)}, {value.lng.toFixed(6)}</div>}
+    {mapError && <div className="map-error">{mapError}</div>}
   </div>;
 }
