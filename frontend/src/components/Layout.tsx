@@ -1,7 +1,8 @@
+import type { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Bot, CalendarDays, LayoutDashboard, LogOut, Settings2, Sparkles } from "lucide-react";
 import { api, session } from "../api";
-export default function Layout({children}:{children:React.ReactNode}) {
+export default function Layout({children}:{children:ReactNode}) {
   const navigate=useNavigate();
   const logout=async()=>{try{await api.logout()}catch{} session.clear(); sessionStorage.removeItem("inquiro.businessId"); navigate("/login");};
   return <div className="app-shell">
