@@ -14,7 +14,7 @@
   var origin = new URL(src, window.location.href).origin;
   var iframe = document.createElement("iframe");
   iframe.title = "Inquiro AI receptionist";
-  iframe.src = origin + "/widget?channelId=" + encodeURIComponent(channelId);
+  iframe.src = origin + "/widget?channelId=" + encodeURIComponent(channelId) + "&siteOrigin=" + encodeURIComponent(window.location.origin);
   iframe.setAttribute("loading", "lazy");
   iframe.style.position = "fixed";
   iframe.style.right = "20px";
