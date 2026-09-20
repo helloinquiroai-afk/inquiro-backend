@@ -3,99 +3,33 @@ package com.inquiro.business;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Repository;
-
+import java.util.Arrays;
 import java.util.List;
 
 @Repository
 @Primary
 @RequiredArgsConstructor
-public class JpaBusinessChannelRepository
-        implements BusinessChannelRepository {
-
+public class JpaBusinessChannelRepository implements BusinessChannelRepository {
     private final BusinessChannelJpaRepository jpaRepository;
 
-
-    @Override
-    public BusinessChannel findByTypeAndExternalId(
-            BusinessChannelType type,
-            String externalId) {
-
-        if (type == null
-                || externalId == null
-                || externalId.isBlank()) {
-
-            return null;
-        }
-
-        return jpaRepository
-                .findByTypeAndExternalId(
-                        type.name(),
-                        externalId
-                )
-                .map(this::toDomain)
-                .orElse(null);
+    @Override public BusinessChannel findByTypeAndExternalId(BusinessChannelType type,String externalId){
+        if(type==null||externalId==null||externalId.isBlank()) return null;
+        return jpaRepository.findByTypeAndExternalId(type.name(),externalId).map(this::toDomain).orElse(null);
     }
-
-
-    @Override
-    public List<BusinessChannel> findByType(BusinessChannelType type) {
-        if (type == null) return List.of();
-        return jpaRepository.findByType(type.name()).stream().map(this::toDomain).toList();
+    @Override public List<BusinessChannel> findByType(BusinessChannelType type){
+        if(type==null)return List.of(); return jpaRepository.findByType(type.name()).stream().map(this::toDomain).toList();
     }
-
-    @Override
-    public List<BusinessChannel> findByBusinessId(
-            String businessId) {
-
-        if (businessId == null
-                || businessId.isBlank()) {
-
-            return List.of();
-        }
-
-        return jpaRepository
-                .findByBusinessId(businessId)
-                .stream()
-                .map(this::toDomain)
-                .toList();
+    @Override public List<BusinessChannel> findByBusinessId(String businessId){
+        if(businessId==null||businessId.isBlank())return List.of();
+        return jpaRepository.findByBusinessId(businessId).stream().map(this::toDomain).toList();
     }
-
-
-    @Override
-    public void save(
-            BusinessChannel channel) {
-
-        if (channel == null) {
-
-            throw new IllegalArgumentException(
-                    "Business channel cannot be null"
-            );
-        }
-
-        BusinessChannelEntity entity =
-                new BusinessChannelEntity(
-                        channel.channelId(),
-                        channel.businessId(),
-                        channel.type().name(),
-                        channel.externalId(),
-                        channel.enabled()
-                );
-
-        jpaRepository.save(entity);
+    @Override public void save(BusinessChannel channel){
+        if(channel==null)throw new IllegalArgumentException("Business channel cannot be null");
+        jpaRepository.save(new BusinessChannelEntity(channel.channelId(),channel.businessId(),channel.type().name(),channel.externalId(),channel.enabled(),String.join(",",channel.allowedOrigins())));
     }
-
-
-    private BusinessChannel toDomain(
-            BusinessChannelEntity entity) {
-
-        return new BusinessChannel(
-                entity.getChannelId(),
-                entity.getBusinessId(),
-                BusinessChannelType.valueOf(
-                        entity.getType()
-                ),
-                entity.getExternalId(),
-                entity.isEnabled()
-        );
+    private BusinessChannel toDomain(BusinessChannelEntity entity){
+        List<String> origins=entity.getAllowedOrigins()==null||entity.getAllowedOrigins().isBlank()?List.of():
+                Arrays.stream(entity.getAllowedOrigins().split(",")).map(String::trim).filter(s->!s.isBlank()).toList();
+        return new BusinessChannel(entity.getChannelId(),entity.getBusinessId(),BusinessChannelType.valueOf(entity.getType()),entity.getExternalId(),entity.isEnabled(),origins);
     }
 }

@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.net.URI;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api/business/accounts/{businessId}/channels")
@@ -90,8 +92,8 @@ public class BusinessChannelController {
                         businessId,
                         request.type(),
                         request.externalId(),
-                        request.enabled() == null
-                                || request.enabled()
+                        request.enabled() == null || request.enabled(),
+                        List.of()
                 );
 
         businessChannelRepository.save(
@@ -101,6 +103,56 @@ public class BusinessChannelController {
         return channel;
     }
 
+
+    @GetMapping("/{channelId}/website")
+    public BusinessChannel websiteConfig(
+            @PathVariable String businessId,
+            @PathVariable String channelId) {
+        tenantAuthorization.requireBusinessAccess(businessId);
+        validateBusinessExists(businessId);
+        BusinessChannel channel = requireChannel(businessId, channelId);
+        if (channel.type() != BusinessChannelType.WEBSITE) {
+            throw new IllegalArgumentException("Website configuration is only available for website channels");
+        }
+        return channel;
+    }
+
+    @PutMapping("/{channelId}/website")
+    public BusinessChannel updateWebsite(
+            @PathVariable String businessId,
+            @PathVariable String channelId,
+            @RequestBody WebsiteConfigRequest request) {
+        tenantAuthorization.requireBusinessWriteAccess(businessId);
+        validateBusinessExists(businessId);
+        BusinessChannel existing = requireChannel(businessId, channelId);
+        if (existing.type() != BusinessChannelType.WEBSITE) {
+            throw new IllegalArgumentException("Website configuration is only available for website channels");
+        }
+        List<String> origins = request == null || request.allowedOrigins() == null ? List.of() : request.allowedOrigins();
+        List<String> normalized = new ArrayList<>();
+        for (String origin : origins) {
+            if (origin == null || origin.isBlank()) continue;
+            String value = origin.trim().replaceAll("/$", "");
+            URI parsed;
+            try { parsed = URI.create(value); } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException("Invalid website origin: " + value);
+            }
+            if (parsed.getScheme() == null || parsed.getHost() == null ||
+                    (!"http".equalsIgnoreCase(parsed.getScheme()) && !"https".equalsIgnoreCase(parsed.getScheme()))) {
+                throw new IllegalArgumentException("Website origins must include http:// or https:// and a hostname");
+            }
+            String rawPath = parsed.getRawPath();
+            if (parsed.getRawQuery() != null || parsed.getRawFragment() != null ||
+                    (rawPath != null && !rawPath.isBlank() && !"/".equals(rawPath))) {
+                throw new IllegalArgumentException("Website origins must contain only scheme, host and optional port");
+            }
+            if (!normalized.contains(value)) normalized.add(value);
+        }
+        BusinessChannel updated = new BusinessChannel(existing.channelId(), existing.businessId(), existing.type(),
+                existing.externalId(), existing.enabled(), normalized);
+        businessChannelRepository.save(updated);
+        return updated;
+    }
 
     @PutMapping("/{channelId}")
     public BusinessChannel updateChannel(
@@ -127,13 +179,10 @@ public class BusinessChannelController {
                         "Channel not found: " + channelId));
 
         BusinessChannel updated = new BusinessChannel(
-                existing.channelId(),
-                existing.businessId(),
-                existing.type(),
+                existing.channelId(), existing.businessId(), existing.type(),
                 existing.externalId(),
-                request.enabled() == null
-                        ? existing.enabled()
-                        : request.enabled()
+                request.enabled() == null ? existing.enabled() : request.enabled(),
+                existing.allowedOrigins()
         );
 
         businessChannelRepository.save(updated);
@@ -141,6 +190,15 @@ public class BusinessChannelController {
     }
 
     public record UpdateBusinessChannelRequest(Boolean enabled) {}
+    public record WebsiteConfigRequest(List<String> allowedOrigins) {}
+
+    private BusinessChannel requireChannel(String businessId, String channelId) {
+        if (channelId == null || channelId.isBlank()) throw new IllegalArgumentException("Channel ID cannot be blank");
+        return businessChannelRepository.findByBusinessId(businessId).stream()
+                .filter(channel -> channel != null && channelId.equals(channel.channelId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId));
+    }
 
     @PutMapping("/{channelId}/credentials")
     public CredentialStatus replaceCredentials(

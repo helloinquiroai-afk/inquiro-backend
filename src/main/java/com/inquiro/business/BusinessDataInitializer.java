@@ -53,7 +53,7 @@ public class BusinessDataInitializer implements CommandLineRunner {
 
         if (businessChannelRepository.findByTypeAndExternalId(BusinessChannelType.WEBSITE, websiteChannelId) == null) {
             businessChannelRepository.save(new BusinessChannel("channel_website_" + businessId, businessId,
-                    BusinessChannelType.WEBSITE, websiteChannelId, true));
+                    BusinessChannelType.WEBSITE, websiteChannelId, true, java.util.List.of()));
         }
         if (messengerProperties.getPageId() == null || messengerProperties.getPageId().isBlank()) return;
         BusinessChannel existingChannel =
@@ -71,7 +71,8 @@ public class BusinessDataInitializer implements CommandLineRunner {
                             businessId,
                             BusinessChannelType.MESSENGER,
                             messengerProperties.getPageId(),
-                            true
+                            true,
+                            java.util.List.of()
                     )
             );
 
