@@ -64,7 +64,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
-                        .requestMatchers("/api/conversations/**", "/api/chat", "/webhook", "/messenger/webhook",
+                        .requestMatchers("/api/public/**", "/api/conversations/**", "/api/chat", "/webhook", "/messenger/webhook",
                                 "/whatsapp/webhook").permitAll()
                         .requestMatchers("/api/auth/logout").authenticated()
                         .requestMatchers("/api/test/**", "/h2-console/**").hasRole("OPERATOR")
@@ -99,6 +99,13 @@ public class SecurityConfig {
         config.setAllowCredentials(false);
         CorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         ((UrlBasedCorsConfigurationSource) source).registerCorsConfiguration("/**", config);
+
+        CorsConfiguration publicConfig = new CorsConfiguration();
+        publicConfig.setAllowedOriginPatterns(List.of("*"));
+        publicConfig.setAllowedMethods(List.of("POST", "DELETE", "OPTIONS"));
+        publicConfig.setAllowedHeaders(List.of("Content-Type"));
+        publicConfig.setAllowCredentials(false);
+        source.registerCorsConfiguration("/api/public/**", publicConfig);
         return source;
     }
 
