@@ -188,6 +188,32 @@ The browser's existing localStorage identifier can still be sent unchanged. Hist
 
 See [VALIDATION.md](VALIDATION.md) for actual build and smoke-test results. Real Meta delivery is a separate external acceptance check; a mocked send test does not prove it.
 
+
+## Phase 45 — Self-service business onboarding
+
+Phase 45 turns the existing onboarding readiness/checklist foundation into a self-service, wizard-ready configuration API. The intended customer flow is: register → choose business type → enter business information → choose/configure services → provide business knowledge → connect a channel → test → go live. No operator setup or management key is required for business-owner configuration.
+
+### Wizard catalog
+
+- GET /api/business/accounts/{businessId}/onboarding/catalog returns supported business types and service templates for the persisted business type.
+- Initial templates cover hospitality (ROOM_BOOKING, AIRPORT_PICKUP), restaurant (TABLE_RESERVATION, BUFFET_RESERVATION), and healthcare (DOCTOR_APPOINTMENT).
+- Templates are suggestions only. The business can edit service definitions, required slots, customer-facing slot questions, action-required fields, availability strategy, and availability mappings before saving.
+- Unknown business types return no invented service templates.
+
+### Step-by-step configuration
+
+- PUT /api/business/accounts/{businessId}/onboarding/business saves business name, type, and description without replacing configured services or knowledge.
+- PUT /api/business/accounts/{businessId}/onboarding/services saves the selected service definitions without replacing business knowledge.
+- PUT /api/business/accounts/{businessId}/onboarding/knowledge saves the business knowledge without replacing services.
+- Existing GET /api/business/accounts/{businessId}/onboarding and /steps remain the source of readiness state and missing requirements.
+- POST /api/business/accounts/{businessId}/onboarding/complete is the final readiness gate. It succeeds only when business information, services, meaningful knowledge, and at least one enabled channel are present; otherwise it returns HTTP 409 with the missing requirements.
+
+### Self-service boundary
+
+Business users are authorized through the existing tenant membership/security layer. The wizard APIs never require X-Inquiro-Management-Key. The backend stores the same BusinessProfile, BusinessKnowledge, and RequestDefinition structures already used by the receptionist, so the wizard does not create a second configuration model.
+
+The Phase 45 backend is intentionally frontend-neutral: a web dashboard/wizard can consume these APIs without changing the AI conversation engine. The next phase can build the customer-facing dashboard on top of this contract.
+
 ## Phase 44 — Production API and abuse protection
 
 Phase 44 adds backend controls that protect public/customer-facing APIs and the AI dependency from accidental overload, brute-force traffic, and runaway request cost.
