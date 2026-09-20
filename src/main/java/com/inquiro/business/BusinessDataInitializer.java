@@ -61,7 +61,8 @@ public class BusinessDataInitializer implements CommandLineRunner {
                         .findByTypeAndExternalId(
                                 BusinessChannelType.MESSENGER,
                                 messengerProperties.getPageId()
-                        );
+                    List.of()
+            );
 
         if (existingChannel == null) {
 
@@ -73,6 +74,7 @@ public class BusinessDataInitializer implements CommandLineRunner {
                             messengerProperties.getPageId(),
                             true
                     )
+                    List.of()
             );
 
             System.out.println(
