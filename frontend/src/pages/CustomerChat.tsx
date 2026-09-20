@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { Bot, Check, RotateCcw, Send, Sparkles, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { api, session } from "../api";
