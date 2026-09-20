@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inquiro.business.BusinessAccount;
 import com.inquiro.business.BusinessAccountRepository;
 import com.inquiro.business.BusinessProfile;
+import com.inquiro.security.RateLimitService;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,9 +33,11 @@ class AuthAndTenantSecurityTest {
     @Autowired BusinessMembershipJpaRepository memberships;
     @Autowired BusinessAccountRepository accounts;
     @Autowired PasswordEncoder passwordEncoder;
+    @Autowired RateLimitService rateLimitService;
 
     @BeforeEach
     void resetAuthData() {
+        rateLimitService.clear();
         sessions.deleteAll();
         memberships.deleteAll();
         users.deleteAll();
