@@ -109,6 +109,22 @@ public class ConversationService {
     private final AvailabilityService legacyAvailabilityService;
     private final BusinessContextResolver businessContextResolver;
 
+    public void clearPublicSession(String sessionId, String externalChannelId) {
+        if (sessionId == null || sessionId.isBlank() || externalChannelId == null || externalChannelId.isBlank()) {
+            return;
+        }
+        BusinessChannel channel = businessChannelRepository.findByTypeAndExternalId(
+                BusinessChannelType.WEBSITE, externalChannelId.trim());
+        if (channel != null && channel.enabled()) {
+            conversationRepository.remove(new ConversationIdentity(
+                    channel.businessId(),
+                    BusinessChannelType.WEBSITE,
+                    externalChannelId.trim(),
+                    sessionId
+            ).sessionId());
+        }
+    }
+
     public InquiryResponse process(String sessionId, String externalChannelId) {
         return process(sessionId, BusinessChannelType.MESSENGER, externalChannelId, null);
     }
