@@ -41,5 +41,6 @@ export const api = {
   complete: (id:string) => request<OnboardingSummary>(`/api/business/accounts/${id}/onboarding/complete`,{method:"POST"}),
   bookings: (id:string) => request<Booking[]>(`/api/business/accounts/${id}/bookings`),
   channels: (id:string) => request<{channelId:string;businessId:string;type:string;externalId:string;enabled:boolean}[]>(`/api/business/accounts/${id}/channels`),
+  connectWebsite: (id:string) => request<{channelId:string;businessId:string;type:string;externalId:string;enabled:boolean}>(`/api/business/accounts/${id}/channels`,{method:"POST",body:JSON.stringify({type:"WEBSITE",externalId:`website-${id}`,enabled:true})}),
   logout: () => request<void>("/api/auth/logout",{method:"POST"})
 };
