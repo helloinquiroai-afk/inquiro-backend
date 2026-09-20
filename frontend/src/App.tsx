@@ -7,6 +7,7 @@ import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Bookings from "./pages/Bookings";
 import Setup from "./pages/Setup";
+import CustomerChat from "./pages/CustomerChat";
 import Layout from "./components/Layout";
 
 function Protected({children}:{children:ReactNode}) {
@@ -21,6 +22,7 @@ export default function App() {
     <Route path="/onboarding/*" element={<Protected><Layout><Onboarding/></Layout></Protected>} />
     <Route path="/bookings" element={<Protected><Layout><Bookings/></Layout></Protected>} />
     <Route path="/setup" element={<Protected><Layout><Setup/></Layout></Protected>} />
+    <Route path="/chat" element={<Protected><Layout><CustomerChat/></Layout></Protected>} />
     <Route path="/" element={<Protected><Layout><Dashboard/></Layout></Protected>} />
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>;

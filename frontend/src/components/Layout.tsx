@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Bot, CalendarDays, LayoutDashboard, LogOut, Settings2, Sparkles } from "lucide-react";
+import { Bot, CalendarDays, LayoutDashboard, LogOut, MessageSquareText, Settings2, Sparkles } from "lucide-react";
 import { api, session } from "../api";
 export default function Layout({children}:{children:ReactNode}) {
   const navigate=useNavigate();
@@ -12,6 +12,7 @@ export default function Layout({children}:{children:ReactNode}) {
       <nav>
         <NavLink to="/" end><LayoutDashboard size={18}/>Overview</NavLink>
         <NavLink to="/bookings"><CalendarDays size={18}/>Bookings</NavLink>
+        <NavLink to="/chat"><MessageSquareText size={18}/>Customer chat</NavLink>
         <NavLink to="/setup"><Settings2 size={18}/>Business setup</NavLink>
       </nav>
       <div className="sidebar-bottom"><div className="ai-card"><Bot size={19}/><b>Your AI is ready</b><small>Configure your business and connect a channel to go live.</small></div><button className="ghost-button" onClick={logout}><LogOut size={17}/>Sign out</button></div>

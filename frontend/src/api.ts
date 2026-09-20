@@ -1,4 +1,4 @@
-import type { BusinessKnowledge, Catalog, OnboardingSummary, ServiceDefinition, Booking } from "./types";
+import type { BusinessKnowledge, Catalog, ConversationResponse, OnboardingSummary, ServiceDefinition, Booking } from "./types";
 
 const API = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
 const TOKEN_KEY = "inquiro.session";
@@ -40,6 +40,8 @@ export const api = {
     request<OnboardingSummary>(`/api/business/accounts/${id}/onboarding/knowledge`,{method:"PUT",body:JSON.stringify({knowledge})}),
   complete: (id:string) => request<OnboardingSummary>(`/api/business/accounts/${id}/onboarding/complete`,{method:"POST"}),
   bookings: (id:string) => request<Booking[]>(`/api/business/accounts/${id}/bookings`),
+  conversation: (sessionId:string,message:string,channelId:string) => request<ConversationResponse>("/api/conversations/message",{method:"POST",body:JSON.stringify({sessionId,message,channelId})}),
+  clearConversation: (sessionId:string,channelId:string) => request<void>(`/api/conversations/${encodeURIComponent(sessionId)}?channelId=${encodeURIComponent(channelId)}`,{method:"DELETE"}),
   channels: (id:string) => request<{channelId:string;businessId:string;type:string;externalId:string;enabled:boolean}[]>(`/api/business/accounts/${id}/channels`),
   connectWebsite: (id:string) => request<{channelId:string;businessId:string;type:string;externalId:string;enabled:boolean}>(`/api/business/accounts/${id}/channels`,{method:"POST",body:JSON.stringify({type:"WEBSITE",externalId:`website-${id}`,enabled:true})}),
   logout: () => request<void>("/api/auth/logout",{method:"POST"})

@@ -12,6 +12,13 @@ export type BusinessKnowledge = {
   contactInformation: Record<string,string>; bookingRules: Record<string,string>;
   capabilities: string[]; restrictions: string[];
 };
+export type ConversationResponse = {
+  inquiry: { domain?: string; service?: string; fields?: Record<string, unknown> } | null;
+  missingFields: string[];
+  status: string;
+  reply: string;
+  bookingId?: string;
+};
 export type OnboardingSummary = {
   businessId: string; status: string; businessInformationComplete: boolean;
   servicesConfigured: boolean; knowledgeConfigured: boolean; channelConfigured: boolean;
