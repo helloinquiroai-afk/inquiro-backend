@@ -74,9 +74,9 @@ public class SecurityConfig {
                                 "Authentication required"))
                         .accessDeniedHandler((request, response, exception) -> writeError(response, 403,
                                 "Access denied")))
-                .addFilterBefore(new RateLimitFilter(rateLimitService, rateLimitProperties), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(managementAccessFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(bearerTokenAuthenticationFilter, ManagementAccessFilter.class);
+                .addFilterAfter(bearerTokenAuthenticationFilter, ManagementAccessFilter.class)
+                .addFilterAfter(new RateLimitFilter(rateLimitService, rateLimitProperties), BearerTokenAuthenticationFilter.class);
 
         return http.build();
     }
