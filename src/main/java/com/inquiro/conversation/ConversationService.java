@@ -209,7 +209,7 @@ public class ConversationService {
 
         String knowledgeReply = inquiryOrchestrator.answerKnowledgeQuestions(intent.knowledgeQuestions(), profile);
         FollowUpAnalysis replyAnalysis = aiService.analyzeFollowUp(session.getInquiry().service(), session.getInquiry().fields(), session.getMissingFields(), message);
-        Map<String, Object> fields = EntityMerger.merge(session.getInquiry().fields(), replyAnalysis.entities());
+        Map<String, Object> followUpEntities = FollowUpFieldResolver.resolve(\n                replyAnalysis.entities(), message, session.getMissingFields());\n        Map<String, Object> fields = EntityMerger.merge(session.getInquiry().fields(), followUpEntities);
         RequestDefinition definition = definitionFor(session.getInquiry(), profile);
         fields = businessContextResolver.resolve(definition, fields, profile);
         RequestAnalysis updatedAnalysis = new RequestAnalysis(session.getInquiry().service(), 1.0, fields);
