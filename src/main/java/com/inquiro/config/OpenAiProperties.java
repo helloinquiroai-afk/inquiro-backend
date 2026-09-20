@@ -13,5 +13,8 @@ public class OpenAiProperties {
 
     private String apiKey;
     private String model = "gpt-4.1-mini";
+    private int connectTimeoutSeconds = 5;
+    private int readTimeoutSeconds = 30;
+    private int maxConcurrentRequests = 8;
 
 }
