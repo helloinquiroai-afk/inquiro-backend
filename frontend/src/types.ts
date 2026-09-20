@@ -5,10 +5,18 @@ export type ServiceDefinition = {
   actionRequiredSlots: string[]; availabilityStrategy: string;
   availabilityFields: Record<string,string>;
 };
+export type BusinessLocation = {
+  label: string;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
+};
+
 export type BusinessKnowledge = {
   businessDescription: string; services: string[]; products: string[];
   facts: Record<string,string>; faqs: string[]; policies: string[];
   instructions: string; operatingHours: Record<string,string>; locations: string[];
+  locationDetails: BusinessLocation[];
   contactInformation: Record<string,string>; bookingRules: Record<string,string>;
   capabilities: string[]; restrictions: string[];
 };
