@@ -11,6 +11,8 @@ import org.springframework.web.client.RestClient;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class OpenAiService implements AiService {
@@ -28,11 +30,22 @@ public class OpenAiService implements AiService {
         this.objectMapper = objectMapper;
         this.businessProfileProvider = provider;
         var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(java.time.Duration.ofSeconds(5));
-        factory.setReadTimeout(java.time.Duration.ofSeconds(30));
+        factory.setConnectTimeout(java.time.Duration.ofSeconds(properties.getConnectTimeoutSeconds()));
+        factory.setReadTimeout(java.time.Duration.ofSeconds(properties.getReadTimeoutSeconds()));
+        Semaphore concurrency = new Semaphore(Math.max(1, properties.getMaxConcurrentRequests()));
         this.client = builder.baseUrl("https://api.openai.com")
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getApiKey())
-                .requestFactory(factory).build();
+                .requestFactory(factory)
+                .requestInterceptor((request, body, execution) -> {
+                    boolean acquired = false;
+                    try {
+                        acquired = concurrency.tryAcquire(Math.max(1, properties.getReadTimeoutSeconds()), TimeUnit.SECONDS);
+                        if (!acquired) throw new IllegalStateException("OpenAI concurrency limit reached");
+                        return execution.execute(request, body);
+                    } finally {
+                        if (acquired) concurrency.release();
+                    }
+                }).build();
     }
 
     OpenAiService(OpenAiProperties properties, ObjectMapper mapper, BusinessProfileProvider provider, RestClient client) {
