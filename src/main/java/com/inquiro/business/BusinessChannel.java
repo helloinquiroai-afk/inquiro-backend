@@ -17,4 +17,10 @@ public record BusinessChannel(
                 .distinct()
                 .toList();
     }
+
+    public BusinessChannel(String channelId, String businessId, BusinessChannelType type,
+                           String externalId, boolean enabled) {
+        this(channelId, businessId, type, externalId, enabled, List.of());
+    }
+
 }
