@@ -11,7 +11,6 @@ public class RateLimitProperties {
     private int authRequestsPerMinute = 10;
     private int webhookRequestsPerMinute = 120;
     private int maxRequestBodyBytes = 1_048_576;
-    private int burst = 10;
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -27,6 +26,4 @@ public class RateLimitProperties {
     public void setWebhookRequestsPerMinute(int v) { this.webhookRequestsPerMinute = v; }
     public int getMaxRequestBodyBytes() { return maxRequestBodyBytes; }
     public void setMaxRequestBodyBytes(int v) { this.maxRequestBodyBytes = v; }
-    public int getBurst() { return burst; }
-    public void setBurst(int v) { this.burst = v; }
 }
