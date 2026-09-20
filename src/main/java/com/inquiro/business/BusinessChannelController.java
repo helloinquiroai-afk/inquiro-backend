@@ -104,6 +104,19 @@ public class BusinessChannelController {
     }
 
 
+    @GetMapping("/{channelId}/website")
+    public BusinessChannel websiteConfig(
+            @PathVariable String businessId,
+            @PathVariable String channelId) {
+        tenantAuthorization.requireBusinessAccess(businessId);
+        validateBusinessExists(businessId);
+        BusinessChannel channel = requireChannel(businessId, channelId);
+        if (channel.type() != BusinessChannelType.WEBSITE) {
+            throw new IllegalArgumentException("Website configuration is only available for website channels");
+        }
+        return channel;
+    }
+
     @PutMapping("/{channelId}/website")
     public BusinessChannel updateWebsite(
             @PathVariable String businessId,
