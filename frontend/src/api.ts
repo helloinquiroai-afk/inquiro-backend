@@ -29,7 +29,7 @@ export const api = {
   register: (name:string,email:string,password:string) => request<{userId:string;email:string;name:string}>("/api/auth/register",{method:"POST",body:JSON.stringify({name,email,password})}),
   login: (email:string,password:string) => request<{accessToken:string;tokenType:string;expiresAt:string;user:{userId:string;email:string;name:string}}>("/api/auth/login",{method:"POST",body:JSON.stringify({email,password})}),
   createBusiness: (businessName:string,businessType:string,description:string) =>
-    request<{businessId:string;businessName:string}>("/api/business/accounts",{method:"POST",body:JSON.stringify({businessName,businessType,description,services:[],knowledge:{businessDescription:"",services:[],products:[],facts:{},faqs:[],policies:[],instructions:"",operatingHours:{},locations:[],contactInformation:{},bookingRules:{},capabilities:[],restrictions:[]}})}),
+    request<{businessId:string;businessName:string}>("/api/business/accounts",{method:"POST",body:JSON.stringify({businessName,businessType,description,services:[],knowledge:{businessDescription:"",services:[],products:[],facts:{},faqs:[],policies:[],instructions:"",operatingHours:{},locations:[],locationDetails:[],contactInformation:{},bookingRules:{},capabilities:[],restrictions:[]}})}),
   summary: (id:string) => request<OnboardingSummary>(`/api/business/accounts/${id}/onboarding`),
   catalog: (id:string) => request<Catalog>(`/api/business/accounts/${id}/onboarding/catalog`),
   saveBusiness: (id:string,data:{businessName:string;businessType:string;description:string}) =>
