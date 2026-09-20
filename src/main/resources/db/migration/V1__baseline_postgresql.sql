@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS conversation_session (
     customer_id VARCHAR(255),
     inquiry_json TEXT,
     missing_fields_json TEXT,
-    last_updated TIMESTAMPTZ NOT NULL
+    last_updated TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_conversation_business_customer
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS business_request (
     fields_json TEXT,
     availability_status VARCHAR(50) NOT NULL,
     status VARCHAR(50) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT fk_business_request_business
         FOREIGN KEY (business_id) REFERENCES business_account (business_id)
 );
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS user_account (
     email VARCHAR(320) NOT NULL UNIQUE,
     password_hash VARCHAR(100) NOT NULL,
     name VARCHAR(200) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     enabled BOOLEAN NOT NULL
 );
 
@@ -75,10 +75,10 @@ CREATE TABLE IF NOT EXISTS auth_session (
     session_id VARCHAR(64) PRIMARY KEY,
     user_id VARCHAR(64) NOT NULL,
     token_hash VARCHAR(64) NOT NULL UNIQUE,
-    created_at TIMESTAMPTZ NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL,
-    revoked_at TIMESTAMPTZ,
-    last_used_at TIMESTAMPTZ,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    revoked_at TIMESTAMP WITH TIME ZONE,
+    last_used_at TIMESTAMP WITH TIME ZONE,
     CONSTRAINT fk_auth_session_user
         FOREIGN KEY (user_id) REFERENCES user_account (user_id)
 );
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS business_membership (
     user_id VARCHAR(64) NOT NULL,
     business_id VARCHAR(128) NOT NULL,
     role VARCHAR(20) NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     CONSTRAINT fk_membership_user
         FOREIGN KEY (user_id) REFERENCES user_account (user_id),
     CONSTRAINT fk_membership_business
@@ -117,8 +117,8 @@ CREATE TABLE IF NOT EXISTS messenger_inbox (
     message_text VARCHAR(10000) NOT NULL,
     reply VARCHAR(10000),
     status VARCHAR(50) NOT NULL,
-    received_at TIMESTAMPTZ NOT NULL,
-    next_attempt_at TIMESTAMPTZ NOT NULL,
+    received_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    next_attempt_at TIMESTAMP WITH TIME ZONE NOT NULL,
     send_attempts INTEGER NOT NULL,
     failure_code VARCHAR(255),
     CONSTRAINT fk_messenger_inbox_business
