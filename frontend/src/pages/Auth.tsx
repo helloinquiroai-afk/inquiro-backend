@@ -1,4 +1,5 @@
-import { FormEvent, useState } from "react";
+import type { FormEvent } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Bot, LockKeyhole, Mail, Sparkles, User } from "lucide-react";
 import { api, session } from "../api";
