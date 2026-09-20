@@ -4,45 +4,31 @@ import java.util.List;
 import java.util.Map;
 
 public record BusinessKnowledge(
-
         String businessDescription,
-
         List<String> services,
-
         List<String> products,
-
         Map<String, String> facts,
-
         List<String> faqs,
-
         List<String> policies,
-
         String instructions,
-
         Map<String, String> operatingHours,
-
         List<String> locations,
-
         Map<String, String> contactInformation,
-
         Map<String, String> bookingRules,
-
         List<String> capabilities,
-
         List<String> restrictions,
-
-        BusinessBoundaries boundaries
-
+        BusinessBoundaries boundaries,
+        List<BusinessLocation> locationDetails
 ) {
-
     public static BusinessKnowledge empty() {
-        return new BusinessKnowledge("", List.of(), List.of(), Map.of(), List.of(), List.of(), "");
+        return new BusinessKnowledge("", List.of(), List.of(), Map.of(), List.of(), List.of(), "",
+                Map.of(), List.of(), Map.of(), Map.of(), List.of(), List.of(), null, List.of());
     }
 
     public BusinessKnowledge withFaqs(List<String> replacement) {
         return new BusinessKnowledge(businessDescription, services, products, facts, replacement, policies,
                 instructions, operatingHours, locations, contactInformation, bookingRules, capabilities,
-                restrictions, boundaries);
+                restrictions, boundaries, locationDetails);
     }
 
     public BusinessKnowledge(
@@ -53,93 +39,50 @@ public record BusinessKnowledge(
             List<String> faqs,
             List<String> policies,
             String instructions) {
+        this(businessDescription, services, products, facts, faqs, policies, instructions,
+                Map.of(), List.of(), Map.of(), Map.of(), List.of(), List.of(),
+                new BusinessBoundaries(services, List.of(), List.of()), List.of());
+    }
 
-        this(
-                businessDescription,
-                services,
-                products,
-                facts,
-                faqs,
-                policies,
-                instructions,
-                Map.of(),
-                List.of(),
-                Map.of(),
-                Map.of(),
-                List.of(),
-                List.of(),
-                new BusinessBoundaries(
-                        services,
-                        List.of(),
-                        List.of()
-                )
-        );
+    public BusinessKnowledge(
+            String businessDescription,
+            List<String> services,
+            List<String> products,
+            Map<String, String> facts,
+            List<String> faqs,
+            List<String> policies,
+            String instructions,
+            Map<String, String> operatingHours,
+            List<String> locations,
+            Map<String, String> contactInformation,
+            Map<String, String> bookingRules,
+            List<String> capabilities,
+            List<String> restrictions,
+            BusinessBoundaries boundaries) {
+        this(businessDescription, services, products, facts, faqs, policies, instructions,
+                operatingHours, locations, contactInformation, bookingRules, capabilities,
+                restrictions, boundaries, List.of());
     }
 
     public BusinessKnowledge {
-
-        services =
-                services == null
-                        ? List.of()
-                        : List.copyOf(services);
-
-        products =
-                products == null
-                        ? List.of()
-                        : List.copyOf(products);
-
-        facts =
-                facts == null
-                        ? Map.of()
-                        : Map.copyOf(facts);
-
-        faqs =
-                faqs == null
-                        ? List.of()
-                        : List.copyOf(faqs);
-
-        policies =
-                policies == null
-                        ? List.of()
-                        : List.copyOf(policies);
-
-        operatingHours =
-                operatingHours == null
-                        ? Map.of()
-                        : Map.copyOf(operatingHours);
-
-        locations =
-                locations == null
-                        ? List.of()
-                        : List.copyOf(locations);
-
-        contactInformation =
-                contactInformation == null
-                        ? Map.of()
-                        : Map.copyOf(contactInformation);
-
-        bookingRules =
-                bookingRules == null
-                        ? Map.of()
-                        : Map.copyOf(bookingRules);
-
-        capabilities =
-                capabilities == null
-                        ? List.of()
-                        : List.copyOf(capabilities);
-
-        restrictions =
-                restrictions == null
-                        ? List.of()
-                        : List.copyOf(restrictions);
-
-        boundaries =
-                boundaries == null
-                        ? new BusinessBoundaries(
-                        services,
-                        List.of(),
-                        List.of()
-                )
-                        : boundaries;
+        services = services == null ? List.of() : List.copyOf(services);
+        products = products == null ? List.of() : List.copyOf(products);
+        facts = facts == null ? Map.of() : Map.copyOf(facts);
+        faqs = faqs == null ? List.of() : List.copyOf(faqs);
+        policies = policies == null ? List.of() : List.copyOf(policies);
+        operatingHours = operatingHours == null ? Map.of() : Map.copyOf(operatingHours);
+        locations = locations == null ? List.of() : List.copyOf(locations);
+        contactInformation = contactInformation == null ? Map.of() : Map.copyOf(contactInformation);
+        bookingRules = bookingRules == null ? Map.of() : Map.copyOf(bookingRules);
+        capabilities = capabilities == null ? List.of() : List.copyOf(capabilities);
+        restrictions = restrictions == null ? List.of() : List.copyOf(restrictions);
+        boundaries = boundaries == null
+                ? new BusinessBoundaries(services, List.of(), List.of())
+                : boundaries;
+        locationDetails = locationDetails == null
+                ? List.of()
+                : locationDetails.stream()
+                        .filter(location -> location != null && location.isMeaningful())
+                        .toList();
     }
 }
