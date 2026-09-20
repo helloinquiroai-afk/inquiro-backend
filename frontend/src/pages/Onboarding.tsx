@@ -8,7 +8,7 @@ const emptyKnowledge:BusinessKnowledge={businessDescription:"",services:[],produ
 const icons:Record<string,typeof Hotel>={HOSPITALITY:Hotel,RESTAURANT:Utensils,HEALTHCARE:Hospital,WOTHER:Hospital};
 export default function Onboarding(){
  const nav=useNavigate(); const id=session.businessId(); const [step,setStep]=useState(0); const [catalog,setCatalog]=useState<Catalog|null>(null); const [summary,setSummary]=useState<OnboardingSummary|null>(null); const [name,setName]=useState(""); const [type,setType]=useState(""); const [description,setDescription]=useState(""); const [services,setServices]=useState<ServiceDefinition[]>([]); const [knowledge,setKnowledge]=useState<BusinessKnowledge>(emptyKnowledge); const [error,setError]=useState(""); const [busy,setBusy]=useState(false);
- useEffect(()=>{if(!id){return} Promise.all([api.catalog(id),api.summary(id)]).then(([c,s])=>{setCatalog(c);setSummary(s)}).catch(e=>setError(e.message));},[id]);
+ useEffect(()=>{if(!id){return} Promise.all([api.catalog(id),api.summary(id)]).then(([c,s])=>{setCatalog(c);setSummary(s)}).catch(e=>setError(e instanceof Error?e.message:"Unable to load onboarding data"));},[id]);
  const steps=["Business","Services","Knowledge","Connect","Launch"];
  const selected=useMemo(()=>new Set(services.map(s=>s.requestType)),[services]);
  if(!id) return <CreateBusiness onCreated={(businessId)=>{session.setBusinessId(businessId);window.location.reload()}}/>;
