@@ -71,6 +71,16 @@ An installed Maven can also run `mvn test` and `mvn package`. The app starts wit
 | `FACEBOOK_GRAPH_API_VERSION` | Defaults to existing `v26.0`; set the version supported by your Meta app |
 | `INQUIRO_MANAGEMENT_API_KEY` | Long random operator key for management API access |
 | `INQUIRO_AUTH_SESSION_TTL_HOURS` | Business-user access-token lifetime; defaults to 24 hours (1–744) |
+| `INQUIRO_RATE_LIMIT_ENABLED` | Enables backend rate limiting; defaults to `true` |
+| `INQUIRO_RATE_LIMIT_REQUESTS_PER_MINUTE` | Anonymous API requests per IP/minute; defaults to 60 |
+| `INQUIRO_RATE_LIMIT_AUTHENTICATED_REQUESTS_PER_MINUTE` | Authenticated API requests per user/minute; defaults to 120 |
+| `INQUIRO_RATE_LIMIT_PUBLIC_AI_REQUESTS_PER_MINUTE` | Public AI chat requests per IP/minute; defaults to 20 |
+| `INQUIRO_RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE` | Login/register attempts per IP/minute; defaults to 10 |
+| `INQUIRO_RATE_LIMIT_WEBHOOK_REQUESTS_PER_MINUTE` | Meta webhook requests per IP/minute; defaults to 120 |
+| `INQUIRO_MAX_REQUEST_BODY_BYTES` | Generic HTTP request Content-Length ceiling; defaults to 1 MiB |
+| `OPENAI_CONNECT_TIMEOUT_SECONDS` | OpenAI connection timeout; defaults to 5 seconds |
+| `OPENAI_READ_TIMEOUT_SECONDS` | OpenAI response timeout; defaults to 30 seconds |
+| `OPENAI_MAX_CONCURRENT_REQUESTS` | Maximum in-process concurrent OpenAI calls; defaults to 8 |
 | `DEFAULT_BUSINESS_ID` | Defaults to `biz_001` |
 | `WEBSITE_CHANNEL_ID` | Defaults to `website-default` |
 | `SEED_DEFAULT_BUSINESS` | Defaults to `true`; seeds missing default account and configured channel mappings |
@@ -178,6 +188,34 @@ The browser's existing localStorage identifier can still be sent unchanged. Hist
 
 See [VALIDATION.md](VALIDATION.md) for actual build and smoke-test results. Real Meta delivery is a separate external acceptance check; a mocked send test does not prove it.
 
+## Phase 44 — Production API and abuse protection
+
+Phase 44 adds backend controls that protect public/customer-facing APIs and the AI dependency from accidental overload, brute-force traffic, and runaway request cost.
+
+### Request and API protection
+
+- A centralized servlet filter applies configurable per-minute limits.
+- Anonymous traffic is keyed by source IP; authenticated business traffic is keyed by the authenticated user ID.
+- Public AI endpoints (`/api/chat` and `/api/conversations/**`) use a stricter default of 20 requests/minute per source IP.
+- Login and registration use a separate 10 requests/minute per source IP limit to reduce credential-stuffing and account-creation abuse.
+- Meta webhook routes use their own higher delivery limit and retain their existing signature, Page ownership, deduplication, and 1 MiB webhook checks.
+- Generic requests with a declared `Content-Length` above the configured 1 MiB default are rejected with HTTP 413.
+- Rate-limited responses return HTTP 429 with `Retry-After`.
+- CORS preflight requests are not charged against the limiter.
+- Rate limiting is disabled explicitly only with `INQUIRO_RATE_LIMIT_ENABLED=false`.
+
+### AI cost and failure protection
+
+- OpenAI connection and read timeouts are configurable rather than hard-coded.
+- OpenAI calls are protected by an in-process concurrency semaphore so a traffic spike cannot create an unbounded number of simultaneous upstream requests.
+- The existing design deliberately does not retry failed OpenAI requests automatically; this prevents a transient upstream failure from multiplying AI spend.
+- Public AI endpoints have a separate request budget from ordinary APIs.
+- Existing message and webhook payload bounds remain in force, so Phase 44 builds on rather than replaces the earlier transport limits.
+
+### Scaling boundary
+
+The default rate limiter is intentionally dependency-free and in-memory. Its state is local to one application instance and resets on restart. It is therefore suitable for the current single-instance pilot. A distributed `RateLimitStore` (for example Redis-backed) should replace the store implementation in the horizontal-scaling milestone rather than being introduced prematurely into the core application.
+
 ## Phase 42/43 — Real availability, booking, and booking reliability
 
 Phase 42/43 replaces the remaining request-only booking path with persistent, inventory-aware bookings and a transactional booking lifecycle.
@@ -281,7 +319,7 @@ Build the executable jar or the supplied `Dockerfile`. The container runs as a n
 
 Place Cloudflare or another HTTPS ingress before the backend, keep the origin private, apply request-size/rate limits, and restrict management access. Never expose the H2 console publicly. Back up H2 while the application is stopped and test restoring the copy. Preserve the database containing the inbox during redeployment so pending replies/deduplication survive.
 
-Before production SaaS rollout: add PostgreSQL driver/schema migrations (legacy CLOB mappings need conversion), business-user authentication/authorization, tenant-scoped management, encrypted per-Page credentials and Meta authorization, database inventory and confirmed bookings, backend rate/usage limits, retention/monitoring, backup/restore verification, and a dashboard/frontend. Pin the current SNAPSHOT parent to a tested stable release. PostgreSQL compatibility, horizontal scaling, billing and deployment to a public host are not claimed by this milestone.
+Before production SaaS rollout: complete retention/monitoring, backup/restore verification, dashboard/frontend, stable dependency pinning, and external Meta/production acceptance. Distributed rate limiting remains a later horizontal-scaling concern. Pin the current SNAPSHOT parent to a tested stable release. PostgreSQL compatibility, horizontal scaling, billing and deployment to a public host are not claimed by this milestone.
 
 Owner onboarding and the other production capabilities remain later milestones. Real Messenger acceptance still requires the external configuration described above.
 

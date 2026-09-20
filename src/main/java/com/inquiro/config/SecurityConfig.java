@@ -3,6 +3,9 @@ package com.inquiro.config;
 import com.inquiro.auth.AuthService;
 import com.inquiro.auth.BearerTokenAuthenticationFilter;
 import com.inquiro.communication.messenger.MetaSignatureValidator;
+import com.inquiro.security.RateLimitFilter;
+import com.inquiro.security.RateLimitProperties;
+import com.inquiro.security.RateLimitService;
 import java.io.IOException;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +36,9 @@ public class SecurityConfig {
             HttpSecurity http,
             AuthService authService,
             MetaSignatureValidator signatureValidator,
-            @Value("${inquiro.management-api-key:}") String managementKey)
+            @Value("${inquiro.management-api-key:}") String managementKey,
+            RateLimitService rateLimitService,
+            RateLimitProperties rateLimitProperties)
             throws Exception {
 
         ManagementAccessFilter managementAccessFilter =
@@ -70,7 +75,8 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, exception) -> writeError(response, 403,
                                 "Access denied")))
                 .addFilterBefore(managementAccessFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(bearerTokenAuthenticationFilter, ManagementAccessFilter.class);
+                .addFilterAfter(bearerTokenAuthenticationFilter, ManagementAccessFilter.class)
+                .addFilterAfter(new RateLimitFilter(rateLimitService, rateLimitProperties), BearerTokenAuthenticationFilter.class);
 
         return http.build();
     }
