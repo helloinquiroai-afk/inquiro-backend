@@ -42,6 +42,9 @@ public class OpenAiService implements AiService {
                         acquired = concurrency.tryAcquire(Math.max(1, properties.getReadTimeoutSeconds()), TimeUnit.SECONDS);
                         if (!acquired) throw new IllegalStateException("OpenAI concurrency limit reached");
                         return execution.execute(request, body);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException("Interrupted while waiting for an OpenAI concurrency slot", e);
                     } finally {
                         if (acquired) concurrency.release();
                     }
