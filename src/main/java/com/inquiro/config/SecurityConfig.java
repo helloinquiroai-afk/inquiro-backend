@@ -105,7 +105,7 @@ public class SecurityConfig {
         publicConfig.setAllowedMethods(List.of("POST", "DELETE", "OPTIONS"));
         publicConfig.setAllowedHeaders(List.of("Content-Type"));
         publicConfig.setAllowCredentials(false);
-        source.registerCorsConfiguration("/api/public/**", publicConfig);
+        ((UrlBasedCorsConfigurationSource) source).registerCorsConfiguration("/api/public/**", publicConfig);
         return source;
     }
 
