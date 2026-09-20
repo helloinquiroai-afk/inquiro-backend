@@ -19,7 +19,7 @@ async function request<T>(path:string, init:RequestInit = {}):Promise<T> {
   const res = await fetch(`${API}${path}`, {...init, headers});
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
-    try { const body = await res.json(); message = body.message ?? message; } catch {}
+    try { const body = await res.json(); message = body.message ?? body.error ?? message; } catch {}
     throw new Error(message);
   }
   if (res.status === 204) return undefined as T;
@@ -27,7 +27,7 @@ async function request<T>(path:string, init:RequestInit = {}):Promise<T> {
 }
 export const api = {
   register: (name:string,email:string,password:string) => request<{userId:string;email:string;name:string}>("/api/auth/register",{method:"POST",body:JSON.stringify({name,email,password})}),
-  login: (email:string,password:string) => request<{token:string;userId:string;email:string;name:string}>("/api/auth/login",{method:"POST",body:JSON.stringify({email,password})}),
+  login: (email:string,password:string) => request<{accessToken:string;tokenType:string;expiresAt:string;user:{userId:string;email:string;name:string}}>("/api/auth/login",{method:"POST",body:JSON.stringify({email,password})}),
   createBusiness: (businessName:string,businessType:string,description:string) =>
     request<{businessId:string;businessName:string}>("/api/business/accounts",{method:"POST",body:JSON.stringify({businessName,businessType,description,services:[],knowledge:{businessDescription:"",services:[],products:[],facts:{},faqs:[],policies:[],instructions:"",operatingHours:{},locations:[],contactInformation:{},bookingRules:{},capabilities:[],restrictions:[]}})}),
   summary: (id:string) => request<OnboardingSummary>(`/api/business/accounts/${id}/onboarding`),
