@@ -420,7 +420,13 @@ type LocationEntry = { id: string; address: string; lat: number | null; lng: num
 
 const sriLankaCenter: [number, number] = [7.8731, 80.7718];
 
-function RecenterMap({ center, zoom }: { center: [number, number]; zoom: number }) {\n  const map = useMap();\n  useEffect(() => { map.setView(center, zoom, { animate: true }); }, [map, center[0], center[1], zoom]);\n  return null;\n}\n\nfunction LocationMarker({ value, onChange }: { value: LocationEntry; onChange: (next: LocationEntry) => void }) {
+function RecenterMap({ center, zoom }: { center: [number, number]; zoom: number }) {
+  const map = useMap();
+  useEffect(() => { map.setView(center, zoom, { animate: true }); }, [map, center[0], center[1], zoom]);
+  return null;
+}
+
+function LocationMarker({ value, onChange }: { value: LocationEntry; onChange: (next: LocationEntry) => void }) {
   useMapEvents({
     click(event) {
       onChange({ ...value, lat: event.latlng.lat, lng: event.latlng.lng });
