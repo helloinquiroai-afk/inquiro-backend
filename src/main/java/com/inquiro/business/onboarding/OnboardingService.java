@@ -100,6 +100,101 @@ public class OnboardingService {
         );
     }
 
+    @org.springframework.transaction.annotation.Transactional
+    public void updateBusinessInformation(
+            String businessId,
+            String businessName,
+            String businessType,
+            String description) {
+
+        BusinessAccount account = requireAccountForUpdate(businessId);
+        BusinessProfile current = account.profile();
+
+        BusinessProfile updated = new BusinessProfile(
+                businessName,
+                businessType,
+                description,
+                current == null ? List.of() : current.services(),
+                current == null ? BusinessKnowledge.empty() : current.knowledge());
+
+        businessAccountRepository.save(
+                new BusinessAccount(account.businessId(), businessName, updated));
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void updateServices(
+            String businessId,
+            List<RequestDefinition> services) {
+
+        BusinessAccount account = requireAccountForUpdate(businessId);
+        BusinessProfile current = account.profile();
+
+        BusinessProfile updated = new BusinessProfile(
+                current.businessName(),
+                current.businessType(),
+                current.description(),
+                services == null ? List.of() : services,
+                current.knowledge());
+
+        businessAccountRepository.save(
+                new BusinessAccount(account.businessId(), account.businessName(), updated));
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void updateKnowledge(
+            String businessId,
+            BusinessKnowledge knowledge) {
+
+        BusinessAccount account = requireAccountForUpdate(businessId);
+        BusinessProfile current = account.profile();
+
+        BusinessProfile updated = new BusinessProfile(
+                current.businessName(),
+                current.businessType(),
+                current.description(),
+                current.services(),
+                knowledge == null ? BusinessKnowledge.empty() : knowledge);
+
+        businessAccountRepository.save(
+                new BusinessAccount(account.businessId(), account.businessName(), updated));
+    }
+
+    public OnboardingSummary complete(String businessId) {
+        OnboardingSummary summary = getOnboardingSummary(businessId);
+        if (summary == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND,
+                    "Business not found");
+        }
+
+        if (!summary.readyForReceptionist()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Onboarding is incomplete: " + String.join(", ", summary.missingRequirements()));
+        }
+
+        return summary;
+    }
+
+    private BusinessAccount requireAccountForUpdate(String businessId) {
+        BusinessAccount account =
+                businessAccountRepository.findByBusinessIdForUpdate(businessId);
+
+        if (account == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND,
+                    "Business not found");
+        }
+
+        if (account.profile() == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.CONFLICT,
+                    "Business profile is not initialized");
+        }
+
+        return account;
+    }
+
     public List<OnboardingStep> getOnboardingSteps(String businessId) {
 
         OnboardingSummary summary = getOnboardingSummary(businessId);
