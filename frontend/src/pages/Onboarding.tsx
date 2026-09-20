@@ -204,11 +204,7 @@ export default function Onboarding() {
             } satisfies BusinessLocation)),
           facts: {
             ...(knowledge.facts ?? {}),
-            ...optionFacts,
-            ...Object.fromEntries(locations.filter(item => item.lat != null && item.lng != null).flatMap((item, index) => [
-              [`Location ${index + 1} latitude`, String(item.lat)],
-              [`Location ${index + 1} longitude`, String(item.lng)]
-            ]))
+            ...optionFacts
           },
           contactInformation: {
             ...(knowledge.contactInformation ?? {}),
