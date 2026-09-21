@@ -1,1 +1,0 @@
-ALTER TABLE business_channel ADD COLUMN IF NOT EXISTS allowed_origins TEXT NOT NULL DEFAULT '';
