@@ -64,6 +64,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
                         .requestMatchers("/api/public/**", "/api/conversations/**", "/api/chat", "/webhook", "/messenger/webhook",
                                 "/whatsapp/webhook").permitAll()
                         .requestMatchers("/api/auth/logout").authenticated()
