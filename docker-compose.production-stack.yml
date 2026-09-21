@@ -29,6 +29,12 @@ services:
       SEED_DEFAULT_BUSINESS: "false"
     env_file: [.env]
     expose: ["8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/actuator/health/readiness || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
