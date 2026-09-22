@@ -2,7 +2,7 @@
 
 Inquiro, by Vorlent Labs, is an AI receptionist for small businesses: answer customer questions, collect booking details, and route requests for confirmation. The initial target industries are hotels, restaurants, and clinics.
 
-This repository contains the Spring Boot backend, with the Messenger integration and Business Knowledge MVP implemented locally. It is **not yet the complete commercial SaaS MVP**. See [IMPLEMENTATION_CHECKLIST.md](IMPLEMENTATION_CHECKLIST.md) for the evidence-based inventory and remaining work.
+This repository contains the Spring Boot backend for the Inquiro AI receptionist platform. It includes authenticated multi-tenant business management, configurable onboarding, persistent knowledge, real availability and booking foundations, website chat, Messenger/WhatsApp integrations, encrypted channel credentials, rate limiting, PostgreSQL/Flyway production configuration, Docker deployment assets, and production security validation. It is **not yet the complete commercial SaaS MVP**: real Meta acceptance, final production frontend/dashboard acceptance, live server deployment, retention/monitoring setup, and operational acceptance remain.
 
 ## What works here
 
@@ -13,11 +13,11 @@ This repository contains the Spring Boot backend, with the Messenger integration
 - Scoped conversation identity: business + channel + external Page/site + customer. Website chat and Messenger share the same conversation service.
 - Website message/reset endpoint compatibility. No frontend source, landing page, localStorage code, or browser daily-limit code is present in this checkout.
 
-Availability currently means that a configured service is offered; it does **not** represent inventory. A completed conversation creates a business request, not an automatically confirmed reservation. Natural dates remain phrases until the inventory/date-normalization milestone.
+Availability is now inventory-aware for configured services. Capacity, operating hours, time-slot/date-range overlap, transactional booking, holds, cancellation, expiration, and idempotency are implemented. Inquiro does not invent inventory. Natural-language dates may still require normalization/confirmation.
 
 ## Architecture and stack
 
-Java 17 target; Spring Boot 3.5.15-SNAPSHOT; Spring MVC, Spring Data JPA, Jackson, Lombok; H2 development database; Maven; OpenAI via Spring RestClient.
+Java 17 target; Spring Boot 3.5.15-SNAPSHOT; Spring MVC, Spring Data JPA, Spring Security, Actuator, Jackson, Lombok; H2 for local development/tests; PostgreSQL for production; Maven/Flyway; OpenAI via Spring RestClient; Docker/Nginx deployment assets.
 
 ```mermaid
 flowchart TD
@@ -89,7 +89,7 @@ An installed Maven can also run `mvn test` and `mvn package`. The app starts wit
 | `FORWARD_HEADERS_STRATEGY` | Defaults to `none`; set `native` only behind a trusted proxy which sanitizes headers |
 | `DATABASE_URL` | JDBC URL; defaults to `jdbc:h2:file:./data/inquiro` |
 | `DATABASE_USERNAME`, `DATABASE_PASSWORD` | Default development values: `sa`, blank password |
-| `DATABASE_DDL_AUTO` | Defaults to `update` for development |
+| `DATABASE_DDL_AUTO` | Defaults to `validate`; production must use `validate` with Flyway |
 | `H2_CONSOLE_ENABLED` | Defaults to `false` |
 
 Optional legacy WhatsApp settings are listed in `.env.example`. Its App Secret can be set with `WHATSAPP_APP_SECRET`; otherwise `FACEBOOK_APP_SECRET` is used.
@@ -98,7 +98,7 @@ Business users register and log in with `/api/auth/register` and `/api/auth/logi
 
 Each authenticated business user is checked against a `BusinessMembership` for the business ID in the request. Owners and admins may operate their own business; only owners can view members or add an already-registered user as an admin. This prevents tenant access by URL manipulation.
 
-The operator key remains a temporary internal bypass for `/api/business/**`, `/api/knowledge/**`, `/api/test/**` and the optional H2 console. Supply it in `X-Inquiro-Management-Key`. It is not a customer credential and must never be embedded in public frontend code. `POST /api/knowledge/ingest` and `/api/test/**` remain operator-only.
+Business management APIs use authenticated business-user bearer sessions and tenant membership/role checks. The management key is retained for explicitly internal/operator surfaces such as `/api/test/**`, `/api/knowledge/**`, and the optional H2 console. Supply it in `X-Inquiro-Management-Key`. It is not a customer credential and must never be embedded in public frontend code.
 
 ## Configure a business for the demo
 
@@ -184,10 +184,16 @@ The browser's existing localStorage identifier can still be sent unchanged. Hist
 
 ## Tests and validation
 
-`mvn test` uses an isolated in-memory H2 database and mocked external HTTP; no real credentials or messages are required. Coverage includes AI JSON parsing, contextual multi-field extraction/merging, correction handling, question interruption, Page/channel isolation, webhook verification/signatures, batch parsing, Send API requests, concurrent deduplication, durable reply retry, operator access, notification routing, and website reset compatibility.
+`mvn test` uses isolated test databases and mocked external HTTP where appropriate. CI runs both `mvn clean test` and `mvn clean verify`. The repository also contains a PostgreSQL/Docker production integration workflow that starts PostgreSQL, runs the production Spring profile, verifies Flyway migrations, checks readiness/liveness, verifies container health, and tears the environment down.
 
-See [VALIDATION.md](VALIDATION.md) for actual build and smoke-test results. Real Meta delivery is a separate external acceptance check; a mocked send test does not prove it.
+See [VALIDATION.md](VALIDATION.md) for detailed validation evidence. CI passing does not by itself prove real Meta delivery, DNS/TLS, external provider acceptance, or a live production deployment.
 
+
+## Current production-readiness status
+
+The earlier README description of Inquiro as primarily a Messenger/Knowledge MVP is outdated. The repository has since added authenticated multi-tenancy, self-service onboarding, dashboard/widget foundations, structured locations, real availability and booking, encrypted channel credentials, rate limiting, PostgreSQL/Flyway production support, Docker/Nginx deployment assets, backup/restore tooling, and Phase 56 production security validation.
+
+Current remaining work is primarily environment acceptance: run the new PostgreSQL/Docker integration workflow successfully, deploy to a real server/platform, configure real secrets/DNS/TLS/persistent storage, execute backup/restore, complete external Meta/WhatsApp acceptance, and finish production frontend/dashboard acceptance.
 
 ## Phase 45 — Self-service business onboarding
 
@@ -339,13 +345,13 @@ FLYWAY_ENABLED=true
 
 Flyway's PostgreSQL support requires the PostgreSQL database module in addition to Flyway core. citeturn0search0turn0search3
 
-## Pilot deployment and remaining production work
+## Production deployment and remaining work
 
 Build the executable jar or the supplied `Dockerfile`. The container runs as a non-root user and listens on 8080. Supply secrets at runtime. For an H2 pilot, persist `/app/data` on a volume writable by UID 10001 and use one instance. The Docker image must be built/tested in your deployment environment; its execution is not implied by the Maven build.
 
 Place Cloudflare or another HTTPS ingress before the backend, keep the origin private, apply request-size/rate limits, and restrict management access. Never expose the H2 console publicly. Back up H2 while the application is stopped and test restoring the copy. Preserve the database containing the inbox during redeployment so pending replies/deduplication survive.
 
-Before production SaaS rollout: complete retention/monitoring, backup/restore verification, dashboard/frontend, stable dependency pinning, and external Meta/production acceptance. Distributed rate limiting remains a later horizontal-scaling concern. Pin the current SNAPSHOT parent to a tested stable release. PostgreSQL compatibility, horizontal scaling, billing and deployment to a public host are not claimed by this milestone.
+Before production SaaS rollout: complete the real server deployment, backup/restore execution, retention/monitoring setup, final frontend/dashboard acceptance, stable dependency pinning, and external Meta/production acceptance. Distributed rate limiting remains a later horizontal-scaling concern. Pin the current SNAPSHOT parent to a tested stable release before a long-lived commercial deployment.
 
 Owner onboarding and the other production capabilities remain later milestones. Real Messenger acceptance still requires the external configuration described above.
 
