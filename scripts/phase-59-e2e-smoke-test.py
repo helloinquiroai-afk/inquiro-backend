@@ -81,7 +81,15 @@ business = request("POST", "/api/business/accounts", {
         "faqs": [],
         "policies": [],
         "instructions": "",
-        "operatingHours": {},
+        "operatingHours": {
+            "MONDAY": "00:00-23:59",
+            "TUESDAY": "00:00-23:59",
+            "WEDNESDAY": "00:00-23:59",
+            "THURSDAY": "00:00-23:59",
+            "FRIDAY": "00:00-23:59",
+            "SATURDAY": "00:00-23:59",
+            "SUNDAY": "00:00-23:59"
+        },
         "locations": ["Paris"],
         "contactInformation": {},
         "bookingRules": {},
