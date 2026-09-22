@@ -1,0 +1,61 @@
+name: Production Backup Operations
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup-script-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Start PostgreSQL
+        run: |
+          docker run -d --name inquiro-phase58-postgres             -e POSTGRES_DB=inquiro_test             -e POSTGRES_USER=inquiro             -e POSTGRES_PASSWORD=integration-password             -p 5432:5432             postgres:16-alpine
+          for i in $(seq 1 30); do
+            if pg_isready -h 127.0.0.1 -p 5432 -U inquiro -d inquiro_test; then break; fi
+            sleep 2
+          done
+          pg_isready -h 127.0.0.1 -p 5432 -U inquiro -d inquiro_test
+
+      - name: Create representative data
+        env:
+          PGPASSWORD: integration-password
+        run: |
+          psql -h 127.0.0.1 -U inquiro -d inquiro_test -v ON_ERROR_STOP=1             -c "CREATE TABLE phase58_backup_test (id INTEGER PRIMARY KEY, payload TEXT NOT NULL);                 INSERT INTO phase58_backup_test VALUES (1, 'phase-58-backup-ok');"
+
+      - name: Run backup and verify archive
+        env:
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: inquiro_test
+          POSTGRES_USER: inquiro
+          POSTGRES_PASSWORD: integration-password
+          BACKUP_DIR: ./backups/phase-58
+          BACKUP_RETENTION_DAYS: "30"
+        run: |
+          chmod +x scripts/backup-postgres.sh
+          ./scripts/backup-postgres.sh
+          test -n "$(find backups/phase-58 -name '*.dump' -size +0c -print -quit)"
+
+      - name: Validate external-storage copy workflow
+        env:
+          BACKUP_FILE: ${{ github.workspace }}/$(find backups/phase-58 -name '*.dump' -print -quit)
+          BACKUP_DESTINATION: file:///tmp/inquiro-external-backups
+        run: |
+          chmod +x scripts/upload-postgres-backup.sh
+          ./scripts/upload-postgres-backup.sh
+          test -n "$(find /tmp/inquiro-external-backups -name '*.dump' -size +0c -print -quit)"
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f inquiro-phase58-postgres
