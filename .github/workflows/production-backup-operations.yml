@@ -1,0 +1,72 @@
+name: Production Backup Operations
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+permissions:
+  contents: read
+
+jobs:
+  backup-script-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL and AWS clients
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client awscli
+
+      - name: Start PostgreSQL
+        run: |
+          docker run -d --name inquiro-phase58-postgres             -e POSTGRES_DB=inquiro_test             -e POSTGRES_USER=inquiro             -e POSTGRES_PASSWORD=integration-password             -p 5432:5432             postgres:16-alpine
+          for i in $(seq 1 30); do
+            if pg_isready -h 127.0.0.1 -p 5432 -U inquiro -d inquiro_test; then break; fi
+            sleep 2
+          done
+          pg_isready -h 127.0.0.1 -p 5432 -U inquiro -d inquiro_test
+
+      - name: Start disposable S3-compatible storage
+        run: |
+          docker run -d --name inquiro-phase58-minio             -p 9000:9000             -p 9001:9001             -e MINIO_ROOT_USER=minioadmin             -e MINIO_ROOT_PASSWORD=minioadmin123             minio/minio:latest server /data --console-address ":9001"
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/live >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:9000/minio/health/live >/dev/null
+
+      - name: Create representative data
+        env:
+          PGPASSWORD: integration-password
+        run: |
+          psql -h 127.0.0.1 -U inquiro -d inquiro_test -v ON_ERROR_STOP=1             -c "CREATE TABLE phase58_backup_test (id INTEGER PRIMARY KEY, payload TEXT NOT NULL);                 INSERT INTO phase58_backup_test VALUES (1, 'phase-58-backup-ok');"
+
+      - name: Run production backup wrapper
+        env:
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: inquiro_test
+          POSTGRES_USER: inquiro
+          POSTGRES_PASSWORD: integration-password
+          BACKUP_DIR: ./backups/phase-58
+          BACKUP_RETENTION_DAYS: "30"
+          BACKUP_DESTINATION: s3://inquiro-backups/inquiro/
+          AWS_ACCESS_KEY_ID: minioadmin
+          AWS_SECRET_ACCESS_KEY: minioadmin123
+          AWS_DEFAULT_REGION: us-east-1
+          S3_ENDPOINT_URL: http://127.0.0.1:9000
+        run: |
+          aws --endpoint-url "$S3_ENDPOINT_URL" s3 mb s3://inquiro-backups
+          chmod +x scripts/backup-postgres.sh scripts/upload-postgres-backup.sh scripts/run-production-backup.sh
+          ./scripts/run-production-backup.sh
+          test -n "$(find backups/phase-58 -name '*.dump' -size +0c -print -quit)"
+          aws --endpoint-url "$S3_ENDPOINT_URL" s3 ls s3://inquiro-backups/inquiro/
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f inquiro-phase58-minio inquiro-phase58-postgres

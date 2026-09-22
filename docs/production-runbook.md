@@ -34,5 +34,41 @@ This is a recoverability test, not just a backup-file test. The workflow runs on
 
 For real production operations, keep backup files outside the database host or container, restrict access to them, retain multiple recovery points, and periodically perform the same restore test against a separate recovery database. Do not restore over the live production database as a routine validation procedure.
 
+## Phase 58 — Production backup operations
+Phase 58 turns the validated backup scripts into an operational backup workflow.
+
+### Backup command
+Use `scripts/run-production-backup.sh` from a trusted production host. It requires `BACKUP_DESTINATION` so a successful run has an external copy, not only a file on the PostgreSQL host.
+
+Required environment:
+- `POSTGRES_HOST`
+- `POSTGRES_PORT` (default 5432)
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `BACKUP_DESTINATION`, normally an `s3://bucket/prefix`
+
+Optional:
+- `BACKUP_DIR` (default ./backups)
+- `BACKUP_RETENTION_DAYS` (default 30)
+- `AWS_REGION`
+- `S3_ENDPOINT_URL` for an S3-compatible provider
+
+The backup is written atomically, checked with `pg_restore --list`, and old local dump files are removed according to `BACKUP_RETENTION_DAYS`. The upload helper supports AWS S3 and S3-compatible endpoints. Keep credentials in the server secret manager or protected environment, never in Git.
+
+### Scheduling
+Run the production backup wrapper from the host scheduler, for example cron:
+
+```cron
+0 2 * * * /opt/inquiro/scripts/run-production-backup.sh >> /var/log/inquiro-backup.log 2>&1
+```
+
+Use the production server's real absolute paths and environment-loading mechanism. The scheduler must run as a dedicated service account with access only to the database credentials, backup directory, and backup destination.
+
+### External retention and recovery
+Configure object-storage lifecycle retention separately at the bucket/provider level. Keep multiple recovery points and protect backups from accidental deletion where the provider supports object lock/versioning. Periodically restore a recent external backup into a separate recovery database using `scripts/restore-postgres.sh`.
+
+Phase 58 CI includes a disposable S3-compatible object store and verifies that a generated dump is uploaded successfully. It does not prove credentials, bucket policy, retention, or restore behavior for a real cloud account.
+
 ## Rollback
 Rollback the application image to the previous known-good version. Do not manually roll back Flyway migrations. For schema recovery, use a verified database backup or a forward migration.
