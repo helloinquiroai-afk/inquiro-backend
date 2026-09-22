@@ -13,10 +13,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install PostgreSQL client
+      - name: Install PostgreSQL and AWS clients
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          sudo apt-get install -y postgresql-client awscli
 
       - name: Start PostgreSQL
         run: |
@@ -26,6 +26,15 @@ jobs:
             sleep 2
           done
           pg_isready -h 127.0.0.1 -p 5432 -U inquiro -d inquiro_test
+
+      - name: Start disposable S3-compatible storage
+        run: |
+          docker run -d --name inquiro-phase58-minio             -p 9000:9000             -p 9001:9001             -e MINIO_ROOT_USER=minioadmin             -e MINIO_ROOT_PASSWORD=minioadmin123             minio/minio:latest server /data --console-address ":9001"
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/live >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:9000/minio/health/live >/dev/null
 
       - name: Create representative data
         env:
@@ -47,15 +56,19 @@ jobs:
           ./scripts/backup-postgres.sh
           test -n "$(find backups/phase-58 -name '*.dump' -size +0c -print -quit)"
 
-      - name: Validate external-storage copy workflow
+      - name: Upload backup to S3-compatible storage
         env:
-          BACKUP_FILE: ${{ github.workspace }}/$(find backups/phase-58 -name '*.dump' -print -quit)
-          BACKUP_DESTINATION: file:///tmp/inquiro-external-backups
+          AWS_ACCESS_KEY_ID: minioadmin
+          AWS_SECRET_ACCESS_KEY: minioadmin123
+          AWS_DEFAULT_REGION: us-east-1
+          S3_ENDPOINT_URL: http://127.0.0.1:9000
         run: |
-          chmod +x scripts/upload-postgres-backup.sh
-          ./scripts/upload-postgres-backup.sh
-          test -n "$(find /tmp/inquiro-external-backups -name '*.dump' -size +0c -print -quit)"
+          aws --endpoint-url "$S3_ENDPOINT_URL" s3 mb s3://inquiro-backups
+          backup_file="$(find backups/phase-58 -name '*.dump' -size +0c -print -quit)"
+          BACKUP_FILE="$backup_file" BACKUP_DESTINATION=s3://inquiro-backups/inquiro/ ./scripts/upload-postgres-backup.sh
+          aws --endpoint-url "$S3_ENDPOINT_URL" s3 ls s3://inquiro-backups/inquiro/
 
       - name: Cleanup
         if: always()
-        run: docker rm -f inquiro-phase58-postgres
+        run: |
+          docker rm -f inquiro-phase58-minio inquiro-phase58-postgres
