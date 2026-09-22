@@ -54,8 +54,8 @@ public class BusinessScheduleAvailabilitySource
 
         boolean dateRangeRequest =
                 fields != null
-                        && fields.get("date") == null
-                        && fields.get("checkInDate") != null;
+                        && fields.get("checkInDate") != null
+                        && fields.get("time") == null;
 
         if (dateValue == null && dateRangeRequest) {
             dateValue = fields.get("checkInDate");
