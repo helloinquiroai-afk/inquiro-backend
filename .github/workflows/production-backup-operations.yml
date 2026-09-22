@@ -35,7 +35,7 @@ jobs:
 
       - name: Start disposable S3-compatible storage
         run: |
-          docker run -d --name inquiro-phase58-minio             -p 9000:9000             -p 9001:9001             -e MINIO_ROOT_USER=minioadmin             -e MINIO_ROOT_PASSWORD=minioadmin123             minio/minio:latest server /data --console-address ":9001"
+          docker run -d --name inquiro-phase58-minio             -p 9000:9000             -p 9001:9001             -e MINIO_ROOT_USER=minioadmin             -e MINIO_ROOT_PASSWORD=minioadmin123             quay.io/minio/minio:latest server /data --console-address ":9001"
           for i in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:9000/minio/health/live >/dev/null; then break; fi
             sleep 2
