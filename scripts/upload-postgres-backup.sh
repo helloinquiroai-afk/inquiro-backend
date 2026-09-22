@@ -19,8 +19,9 @@ case "$BACKUP_DESTINATION" in
     if [ -n "${S3_ENDPOINT_URL:-}" ]; then
       aws_args="--endpoint-url $S3_ENDPOINT_URL"
     fi
+    destination="${BACKUP_DESTINATION%/}/$(basename "$BACKUP_FILE")"
     # shellcheck disable=SC2086
-    aws s3 cp "$BACKUP_FILE" "$BACKUP_DESTINATION/" --region "$AWS_REGION" $aws_args
+    aws s3 cp "$BACKUP_FILE" "$destination" --region "$AWS_REGION" $aws_args
     echo "Backup uploaded to: $BACKUP_DESTINATION"
     ;;
   *)
