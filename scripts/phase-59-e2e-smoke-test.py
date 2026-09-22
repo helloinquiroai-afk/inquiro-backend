@@ -184,9 +184,9 @@ other_token = other_login.get("accessToken")
 try:
     request("GET", f"/api/business/accounts/{business_id}/onboarding", token=other_token, expected=403)
 except AssertionError as exc:
-    # Some security configurations intentionally return 404 for inaccessible tenant resources.
-    if "got 404" not in str(exc):
-        raise
+    if "got 404" in str(exc):
+        raise AssertionError("Tenant authorization must return 403 for an existing business")
+    raise
 
 print("14. Logout")
 request("POST", "/api/auth/logout", token=token, expected=204)
