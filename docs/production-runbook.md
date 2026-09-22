@@ -70,5 +70,12 @@ Configure object-storage lifecycle retention separately at the bucket/provider l
 
 Phase 58 CI includes a disposable S3-compatible object store and verifies that a generated dump is uploaded successfully. It does not prove credentials, bucket policy, retention, or restore behavior for a real cloud account.
 
+## Phase 59 — Full API/E2E production smoke testing
+The repository now includes scripts/phase-59-e2e-smoke-test.py and the E2E Production Smoke workflow. It starts the same production-profile PostgreSQL integration stack used by the other production workflows and exercises the main authenticated customer-management and booking path end to end.
+
+The automated flow verifies readiness, business-user registration/login/logout, business creation, tenant membership, website channel creation and origin configuration, booking inventory, availability, booking creation, idempotent booking retry, capacity exhaustion, cancellation, inventory release, and cross-tenant access denial.
+
+The E2E test intentionally does not call the real OpenAI or Meta services. Those external acceptance tests require real credentials and provider-side configuration and remain a deployment-stage acceptance step. Likewise, HTTPS/DNS and the browser widget are tested separately against the real deployment.
+
 ## Rollback
 Rollback the application image to the previous known-good version. Do not manually roll back Flyway migrations. For schema recovery, use a verified database backup or a forward migration.
