@@ -1,0 +1,68 @@
+name: Production Integration
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-docker-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Unit and integration tests
+        run: |
+          chmod +x mvnw
+          ./mvnw -B clean verify
+
+      - name: Build and start PostgreSQL production stack
+        run: docker compose -f docker-compose.integration.yml up -d --build
+
+      - name: Wait for backend readiness
+        run: |
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8080/actuator/health/readiness > /tmp/readiness.json; then
+              cat /tmp/readiness.json
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose -f docker-compose.integration.yml logs --no-color
+          exit 1
+
+      - name: Verify PostgreSQL migrations
+        run: |
+          docker compose -f docker-compose.integration.yml exec -T postgres             psql -U inquiro -d inquiro_test -v ON_ERROR_STOP=1             -c "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;"
+          docker compose -f docker-compose.integration.yml exec -T postgres             psql -U inquiro -d inquiro_test -v ON_ERROR_STOP=1             -c "SELECT COUNT(*) AS migration_count FROM flyway_schema_history WHERE success = true;"
+
+      - name: Verify production endpoints
+        run: |
+          curl --fail --silent http://127.0.0.1:8080/actuator/health
+          curl --fail --silent http://127.0.0.1:8080/actuator/health/liveness
+          curl --fail --silent http://127.0.0.1:8080/actuator/health/readiness
+
+      - name: Verify container health
+        run: |
+          docker compose -f docker-compose.integration.yml ps
+          test "$(docker inspect --format='{{.State.Health.Status}}' $(docker compose -f docker-compose.integration.yml ps -q inquiro-backend))" = "healthy"
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.integration.yml logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.integration.yml down -v

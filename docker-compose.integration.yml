@@ -1,0 +1,41 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: inquiro_test
+      POSTGRES_USER: inquiro
+      POSTGRES_PASSWORD: integration-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  inquiro-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DATABASE_URL: jdbc:postgresql://postgres:5432/inquiro_test
+      DATABASE_USERNAME: inquiro
+      DATABASE_PASSWORD: integration-password
+      OPENAI_API_KEY: sk-integration-test-key
+      INQUIRO_MANAGEMENT_API_KEY: integration-management-key
+      INQUIRO_CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      INQUIRO_SECURITY_ALLOWED_ORIGINS: http://localhost:5173
+      SEED_DEFAULT_BUSINESS: "false"
+      H2_CONSOLE_ENABLED: "false"
+      MESSENGER_WORKER_ENABLED: "false"
+      INQUIRO_RATE_LIMIT_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
