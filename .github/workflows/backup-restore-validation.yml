@@ -16,70 +16,38 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install PostgreSQL client
+      - name: Start real production PostgreSQL stack
         run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
+          docker compose -f docker-compose.integration.yml up -d --build
 
-      - name: Start PostgreSQL
+      - name: Wait for backend readiness
         run: |
-          docker run -d --name inquiro-phase57-postgres             -e POSTGRES_DB=inquiro_test             -e POSTGRES_USER=inquiro             -e POSTGRES_PASSWORD=integration-password             -p 5432:5432             postgres:16-alpine
-
-          for i in $(seq 1 30); do
-            if pg_isready -h 127.0.0.1 -p 5432 -U inquiro -d inquiro_test; then
-              break
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8080/actuator/health/readiness; then
+              exit 0
             fi
-            sleep 2
+            sleep 5
           done
+          docker compose -f docker-compose.integration.yml logs --no-color
+          exit 1
 
-          pg_isready -h 127.0.0.1 -p 5432 -U inquiro -d inquiro_test
-
-      - name: Create representative schema and sentinel data
-        env:
-          PGPASSWORD: integration-password
+      - name: Create restore sentinel in migrated database
         run: |
-          psql -h 127.0.0.1 -U inquiro -d inquiro_test -v ON_ERROR_STOP=1 <<'SQL'
-          CREATE TABLE phase57_restore_sentinel (
-            id INTEGER PRIMARY KEY,
-            payload TEXT NOT NULL
-          );
-          INSERT INTO phase57_restore_sentinel(id, payload)
-          VALUES (1, 'phase-57-backup-restore-ok');
+          docker compose -f docker-compose.integration.yml exec -T postgres             psql -U inquiro -d inquiro_test -v ON_ERROR_STOP=1             -c "CREATE TABLE phase57_restore_sentinel (id INTEGER PRIMARY KEY, payload TEXT NOT NULL);                 INSERT INTO phase57_restore_sentinel(id, payload) VALUES (1, 'phase-57-backup-restore-ok');"
 
-          CREATE TABLE flyway_schema_history (
-            installed_rank INTEGER PRIMARY KEY,
-            version VARCHAR(50),
-            description VARCHAR(200),
-            type VARCHAR(20),
-            script VARCHAR(1000),
-            checksum INTEGER,
-            installed_by VARCHAR(100),
-            installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            execution_time INTEGER NOT NULL,
-            success BOOLEAN NOT NULL
-          );
-
-          INSERT INTO flyway_schema_history
-            (installed_rank, version, description, type, script, installed_by, execution_time, success)
-          VALUES
-            (1, '1', 'baseline', 'SQL', 'V1__baseline.sql', 'inquiro', 10, true),
-            (2, '2', 'channel credentials', 'SQL', 'V2__channel_credentials.sql', 'inquiro', 10, true),
-            (3, '3', 'booking', 'SQL', 'V3__booking.sql', 'inquiro', 10, true),
-            (4, '4', 'website channel origins', 'SQL', 'V4__website_channel_origins.sql', 'inquiro', 10, true);
-          SQL
-
-      - name: Run backup and restore validation
-        env:
-          POSTGRES_HOST: 127.0.0.1
-          POSTGRES_PORT: "5432"
-          POSTGRES_DB: inquiro_test
-          POSTGRES_USER: inquiro
-          POSTGRES_PASSWORD: integration-password
-          BACKUP_DIR: ./backups/phase-57
+      - name: Execute repository backup and restore scripts
         run: |
-          chmod +x scripts/backup-postgres.sh scripts/restore-postgres.sh scripts/backup-restore-smoke-test.sh
-          ./scripts/backup-restore-smoke-test.sh
+          mkdir -p "$GITHUB_WORKSPACE/backups/phase-57"
+          docker compose -f docker-compose.integration.yml run --rm             -v "$GITHUB_WORKSPACE/scripts:/phase57-scripts:ro"             -v "$GITHUB_WORKSPACE/backups/phase-57:/phase57-backups"             -e POSTGRES_HOST=postgres             -e POSTGRES_PORT=5432             -e POSTGRES_DB=inquiro_test             -e POSTGRES_USER=inquiro             -e POSTGRES_PASSWORD=integration-password             -e BACKUP_DIR=/phase57-backups             postgres             sh /phase57-scripts/backup-restore-smoke-test.sh
 
-      - name: Cleanup
+      - name: Verify backup artifact exists
+        run: |
+          test -n "$(find backups/phase-57 -type f -name '*.dump' -size +0c -print -quit)"
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.integration.yml logs --no-color
+
+      - name: Tear down
         if: always()
-        run: docker rm -f inquiro-phase57-postgres
+        run: docker compose -f docker-compose.integration.yml down -v
