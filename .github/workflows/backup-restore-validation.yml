@@ -1,0 +1,85 @@
+name: Backup Restore Validation
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-backup-restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Start PostgreSQL
+        run: |
+          docker run -d --name inquiro-phase57-postgres             -e POSTGRES_DB=inquiro_test             -e POSTGRES_USER=inquiro             -e POSTGRES_PASSWORD=integration-password             -p 5432:5432             postgres:16-alpine
+
+          for i in $(seq 1 30); do
+            if pg_isready -h 127.0.0.1 -p 5432 -U inquiro -d inquiro_test; then
+              break
+            fi
+            sleep 2
+          done
+
+          pg_isready -h 127.0.0.1 -p 5432 -U inquiro -d inquiro_test
+
+      - name: Create representative schema and sentinel data
+        env:
+          PGPASSWORD: integration-password
+        run: |
+          psql -h 127.0.0.1 -U inquiro -d inquiro_test -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE TABLE phase57_restore_sentinel (
+            id INTEGER PRIMARY KEY,
+            payload TEXT NOT NULL
+          );
+          INSERT INTO phase57_restore_sentinel(id, payload)
+          VALUES (1, 'phase-57-backup-restore-ok');
+
+          CREATE TABLE flyway_schema_history (
+            installed_rank INTEGER PRIMARY KEY,
+            version VARCHAR(50),
+            description VARCHAR(200),
+            type VARCHAR(20),
+            script VARCHAR(1000),
+            checksum INTEGER,
+            installed_by VARCHAR(100),
+            installed_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            execution_time INTEGER NOT NULL,
+            success BOOLEAN NOT NULL
+          );
+
+          INSERT INTO flyway_schema_history
+            (installed_rank, version, description, type, script, installed_by, execution_time, success)
+          VALUES
+            (1, '1', 'baseline', 'SQL', 'V1__baseline.sql', 'inquiro', 10, true),
+            (2, '2', 'channel credentials', 'SQL', 'V2__channel_credentials.sql', 'inquiro', 10, true),
+            (3, '3', 'booking', 'SQL', 'V3__booking.sql', 'inquiro', 10, true),
+            (4, '4', 'website channel origins', 'SQL', 'V4__website_channel_origins.sql', 'inquiro', 10, true);
+          SQL
+
+      - name: Run backup and restore validation
+        env:
+          POSTGRES_HOST: 127.0.0.1
+          POSTGRES_PORT: "5432"
+          POSTGRES_DB: inquiro_test
+          POSTGRES_USER: inquiro
+          POSTGRES_PASSWORD: integration-password
+          BACKUP_DIR: ./backups/phase-57
+        run: |
+          chmod +x scripts/backup-postgres.sh scripts/restore-postgres.sh scripts/backup-restore-smoke-test.sh
+          ./scripts/backup-restore-smoke-test.sh
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f inquiro-phase57-postgres
