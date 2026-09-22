@@ -42,7 +42,7 @@ jobs:
         run: |
           psql -h 127.0.0.1 -U inquiro -d inquiro_test -v ON_ERROR_STOP=1             -c "CREATE TABLE phase58_backup_test (id INTEGER PRIMARY KEY, payload TEXT NOT NULL);                 INSERT INTO phase58_backup_test VALUES (1, 'phase-58-backup-ok');"
 
-      - name: Run backup and verify archive
+      - name: Run production backup wrapper
         env:
           POSTGRES_HOST: 127.0.0.1
           POSTGRES_PORT: "5432"
@@ -51,21 +51,16 @@ jobs:
           POSTGRES_PASSWORD: integration-password
           BACKUP_DIR: ./backups/phase-58
           BACKUP_RETENTION_DAYS: "30"
-        run: |
-          chmod +x scripts/backup-postgres.sh
-          ./scripts/backup-postgres.sh
-          test -n "$(find backups/phase-58 -name '*.dump' -size +0c -print -quit)"
-
-      - name: Upload backup to S3-compatible storage
-        env:
+          BACKUP_DESTINATION: s3://inquiro-backups/inquiro/
           AWS_ACCESS_KEY_ID: minioadmin
           AWS_SECRET_ACCESS_KEY: minioadmin123
           AWS_DEFAULT_REGION: us-east-1
           S3_ENDPOINT_URL: http://127.0.0.1:9000
         run: |
           aws --endpoint-url "$S3_ENDPOINT_URL" s3 mb s3://inquiro-backups
-          backup_file="$(find backups/phase-58 -name '*.dump' -size +0c -print -quit)"
-          BACKUP_FILE="$backup_file" BACKUP_DESTINATION=s3://inquiro-backups/inquiro/ ./scripts/upload-postgres-backup.sh
+          chmod +x scripts/backup-postgres.sh scripts/upload-postgres-backup.sh scripts/run-production-backup.sh
+          ./scripts/run-production-backup.sh
+          test -n "$(find backups/phase-58 -name '*.dump' -size +0c -print -quit)"
           aws --endpoint-url "$S3_ENDPOINT_URL" s3 ls s3://inquiro-backups/inquiro/
 
       - name: Cleanup
