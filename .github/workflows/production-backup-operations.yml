@@ -19,7 +19,10 @@ jobs:
       - name: Install PostgreSQL and AWS clients
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client awscli
+          sudo apt-get install -y postgresql-client python3-venv
+          python3 -m venv "$RUNNER_TEMP/awscli"
+          "$RUNNER_TEMP/awscli/bin/pip" install --quiet awscli
+          echo "$RUNNER_TEMP/awscli/bin" >> "$GITHUB_PATH"
 
       - name: Start PostgreSQL
         run: |
