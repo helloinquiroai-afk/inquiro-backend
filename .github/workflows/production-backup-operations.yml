@@ -1,7 +1,10 @@
 name: Production Backup Operations
 
 on:
-  workflow_dispatch:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
 
 permissions:
   contents: read
