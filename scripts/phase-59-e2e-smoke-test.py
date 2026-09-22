@@ -26,6 +26,8 @@ def request(method, path, body=None, token=None, expected=None, headers=None):
             parsed = json.loads(raw) if raw else None
         except json.JSONDecodeError:
             parsed = raw
+        if expected is not None and exc.code == expected:
+            return parsed
         raise AssertionError(f"{method} {path}: expected {expected}, got {exc.code}: {parsed}") from exc
     if expected is not None and status != expected:
         raise AssertionError(f"{method} {path}: expected {expected}, got {status}: {parsed}")
@@ -189,12 +191,7 @@ other_login = request("POST", "/api/auth/login", {
     "password": password
 }, expected=200)
 other_token = other_login.get("accessToken")
-try:
-    request("GET", f"/api/business/accounts/{business_id}/onboarding", token=other_token, expected=403)
-except AssertionError as exc:
-    if "got 404" in str(exc):
-        raise AssertionError("Tenant authorization must return 403 for an existing business")
-    raise
+request("GET", f"/api/business/accounts/{business_id}/onboarding", token=other_token, expected=403)
 
 print("14. Logout")
 request("POST", "/api/auth/logout", token=token, expected=204)
